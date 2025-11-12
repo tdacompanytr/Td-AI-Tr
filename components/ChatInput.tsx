@@ -4,9 +4,10 @@ import { SendIcon, PaperclipIcon, XIcon } from './Icons';
 interface ChatInputProps {
   onSendMessage: (prompt: string, file?: File | null) => void;
   isLoading: boolean;
+  isCallActive: boolean;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isCallActive }) => {
   const [input, setInput] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
@@ -36,7 +37,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((input.trim() || file) && !isLoading) {
+    if ((input.trim() || file) && !isLoading && !isCallActive) {
       onSendMessage(input.trim(), file);
       setInput('');
       setFile(null);
@@ -66,15 +67,18 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       fileInputRef.current.value = '';
     }
   };
+  
+  const isDisabled = isLoading || isCallActive;
 
   return (
-    <div className="bg-gray-950 p-3 rounded-2xl border border-gray-800 shadow-inner">
+    <div className={`bg-gray-950 p-3 rounded-2xl border border-gray-800 shadow-inner transition-opacity ${isCallActive ? 'opacity-50' : 'opacity-100'}`}>
       {filePreview && (
         <div className="relative mb-2 w-32 h-32">
           <button 
             onClick={handleRemoveFile} 
             className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 z-10 hover:bg-gray-700"
             aria-label="Remove file"
+            disabled={isDisabled}
           >
             <XIcon className="w-4 h-4" />
           </button>
@@ -92,12 +96,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
           onChange={handleFileChange}
           className="hidden"
           accept="image/*,video/*"
-          disabled={isLoading}
+          disabled={isDisabled}
         />
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={isLoading}
+          disabled={isDisabled}
           className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 disabled:cursor-not-allowed transition-colors"
           aria-label="Attach file"
         >
@@ -108,17 +112,17 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Mesajınızı buraya yazın..."
+          placeholder={isCallActive ? "Görüntülü görüşme aktif..." : "Mesajınızı buraya yazın..."}
           rows={1}
           className="flex-1 bg-transparent p-2 text-white placeholder-gray-400 focus:outline-none resize-none max-h-40"
-          disabled={isLoading}
+          disabled={isDisabled}
         />
         <button
           type="submit"
-          disabled={isLoading || (!input.trim() && !file)}
+          disabled={isDisabled || (!input.trim() && !file)}
           className="w-10 h-10 flex-shrink-0 bg-red-600 rounded-full flex items-center justify-center text-white disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200 hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400"
         >
-          {isLoading ? (
+          {isLoading && !isCallActive ? (
             <div className="w-5 h-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
           ) : (
             <SendIcon className="w-5 h-5" />

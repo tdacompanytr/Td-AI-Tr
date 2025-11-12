@@ -93,3 +93,40 @@ export const XIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
         <line x1="6" y1="6" x2="18" y2="18"></line>
     </svg>
 );
+
+export const VideoIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg 
+        {...props}
+        xmlns="http://www.w3.org/2000/svg" 
+        width="24" 
+        height="24" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round"
+    >
+        <path d="m22 8-6 4 6 4V8Z" />
+        <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
+    </svg>
+);
+
+export const VideoOffIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg 
+        {...props}
+        xmlns="http://www.w3.org/2000/svg" 
+        width="24" 
+        height="24" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round"
+    >
+        <path d="M16 16.5V14l4 2.5v-7L16 12v-1.5" />
+        <path d="M2 12.5V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-1.17 1.82" />
+        <path d="m2 2 20 20" />
+    </svg>
+);

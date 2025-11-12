@@ -1,5 +1,8 @@
 {
   "name": "Td AI",
   "description": "A personal AI chatbot powered by Google Gemini. Engage in dynamic, real-time conversations with a sophisticated AI model.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }
