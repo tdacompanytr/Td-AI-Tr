@@ -254,20 +254,67 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCallActive, isConnecting, isVoiceCommandEnabled]);
 
-
   const handleSendMessage = useCallback(async (prompt: string, file?: File | null) => {
     const lowerCasePrompt = prompt.toLowerCase();
     const imageGenKeywords = tr.imageGenKeywords;
+    const videoGenKeywords = tr.videoGenKeywords;
     const isImagePrompt = !file && imageGenKeywords.some(word => lowerCasePrompt.includes(word));
+    const isVideoPrompt = !file && videoGenKeywords.some(word => lowerCasePrompt.includes(word));
+    
+    if (!chat) {
+        setError(tr.chatNotInitError);
+        return;
+    }
 
-    if (isImagePrompt) {
+    if (isVideoPrompt) {
+        setIsLoading(true);
+        setError(null);
+        
+        const userMessage: Message = { role: 'user', text: prompt };
+        const placeholderText = tr.videoGenInProgress;
+        setMessages(prevMessages => [...prevMessages, userMessage, { role: 'model', text: placeholderText }]);
+        
+        try {
+            const promptForGemini = `${tr.videoPromptGenerationPrompt}"${prompt}"`;
+            // Fix: chat.sendMessage expects an object with a 'message' property.
+            const response = await chat.sendMessage({ message: promptForGemini });
+            const engineeredPrompt = response.text;
+
+            const finalMessageText = `${tr.videoGenSuccess}\n\n\`\`\`\n${engineeredPrompt}\n\`\`\`\n\n[https://tryveo3.ai/](https://tryveo3.ai/)`;
+
+            setMessages(prev => {
+                const newMessages = [...prev];
+                const index = newMessages.length - 1;
+                if (index > -1 && newMessages[index].text === placeholderText) {
+                    newMessages[index] = { role: 'model', text: finalMessageText };
+                }
+                return newMessages;
+            });
+        } catch (e: any) {
+            console.error(e);
+            const errorMessage = e.message || "An unexpected error occurred.";
+            setError(`Error: ${errorMessage}`);
+            setMessages(prev => {
+                const newMessages = [...prev];
+                const index = newMessages.length -1;
+                 if (index > -1 && newMessages[index].text === placeholderText) {
+                    newMessages[index] = { role: 'model', text: `${tr.videoGenError}` };
+                }
+                return newMessages;
+            });
+        } finally {
+            setIsLoading(false);
+        }
+
+    } else if (isImagePrompt) {
         setIsLoading(true);
         setError(null);
 
         const userMessage: Message = { role: 'user', text: prompt };
-        setMessages(prevMessages => [...prevMessages, userMessage]);
-        setMessages(prevMessages => [...prevMessages, { role: 'model', text: '' }]); // For typing indicator
-
+        const placeholderText = tr.imageGenInProgress;
+        
+        setMessages(prevMessages => [...prevMessages, userMessage, { role: 'model', text: placeholderText }]);
+        
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const enhancedPrompt = `${tr.imagePromptPrefix}${prompt}`;
@@ -293,31 +340,33 @@ const App: React.FC = () => {
                 }
             }
             
-            if (generatedImage) {
-                setMessages(prevMessages => {
-                    const newMessages = [...prevMessages];
-                    newMessages[newMessages.length - 1] = {
-                        role: 'model',
-                        text: tr.imageGenGreeting,
-                        file: generatedImage,
-                    };
-                    return newMessages;
-                });
-            } else {
-                 const fallbackText = tr.imageGenError;
-                 setMessages(prevMessages => {
-                    const newMessages = [...prevMessages];
-                    newMessages[newMessages.length - 1].text = fallbackText;
-                    return newMessages;
-                });
-            }
+            setMessages(prev => {
+                const newMessages = [...prev];
+                const index = newMessages.length -1; // always the last one
+                if (index > -1 && newMessages[index].text === placeholderText) {
+                    if (generatedImage) {
+                         newMessages[index] = {
+                                role: 'model',
+                                text: tr.imageGenGreeting,
+                                file: generatedImage,
+                            };
+                    } else {
+                         newMessages[index] = { role: 'model', text: tr.imageGenError };
+                    }
+                }
+                return newMessages;
+            });
+
         } catch (e: any) {
             console.error(e);
             const errorMessage = e.message || "An unexpected error occurred.";
             setError(`Error: ${errorMessage}`);
-            setMessages(prevMessages => {
-                const newMessages = [...prevMessages];
-                newMessages[newMessages.length - 1].text = `${tr.imageGenErrorPrefix}${errorMessage}`;
+            setMessages(prev => {
+                const newMessages = [...prev];
+                const index = newMessages.length -1;
+                 if (index > -1 && newMessages[index].text === placeholderText) {
+                    newMessages[index] = { role: 'model', text: `${tr.imageGenErrorPrefix}${errorMessage}` };
+                }
                 return newMessages;
             });
         } finally {
@@ -325,11 +374,6 @@ const App: React.FC = () => {
         }
     } else {
         // Standard chat logic
-        if (!chat) {
-          setError(tr.chatNotInitError);
-          return;
-        }
-        
         setIsLoading(true);
         setError(null);
 
@@ -348,8 +392,7 @@ const App: React.FC = () => {
 
         const userMessage: Message = { role: 'user', text: prompt, file: fileData };
         setMessages(prevMessages => [...prevMessages, userMessage]);
-        setMessages(prevMessages => [...prevMessages, { role: 'model', text: '' }]);
-
+        
         try {
           const messageParts: (string | Part)[] = [{ text: prompt }];
           if (fileData) {
@@ -364,6 +407,8 @@ const App: React.FC = () => {
           const stream = await chat.sendMessageStream({ message: messageParts });
           
           let fullResponse = '';
+          setMessages(prev => [...prev, {role: 'model', text: ''}]);
+
           for await (const chunk of stream) {
             const chunkText = chunk.text;
             fullResponse += chunkText;

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Message, FileData } from '../types';
 import { UserIcon, BotIcon } from './Icons';
@@ -29,9 +30,10 @@ const MediaPreview: React.FC<{ file: FileData }> = ({ file }) => {
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isCallActive = false }) => {
   const isUser = message.role === 'user';
 
-  // Basic markdown for code blocks
   const renderText = (text: string) => {
-    const parts = text.split(/(\`\`\`[\s\S]*?\`\`\`)/g);
+    const codeBlockRegex = /(\`\`\`[\s\S]*?\`\`\`)/g;
+    const parts = text.split(codeBlockRegex);
+
     return parts.map((part, i) => {
       if (part.startsWith('```') && part.endsWith('```')) {
         const code = part.slice(3, -3).trim();
@@ -41,7 +43,21 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isCallActive = f
           </pre>
         );
       }
-      return part.split('\n').map((line, j) => <p key={`${i}-${j}`}>{line}</p>);
+      
+      const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+      const linkParts = part.split(linkRegex);
+
+      return linkParts.map((linkPart, j) => {
+        if (j % 3 === 1) { // This will be the link text
+          const url = linkParts[j + 1];
+          return <a href={url} key={`${i}-${j}`} target="_blank" rel="noopener noreferrer" className="text-red-400 underline hover:text-red-300">{linkPart}</a>;
+        }
+        if (j % 3 === 2) { // This will be the URL, which we've already used
+            return null;
+        }
+        // Render normal text with newlines
+        return linkPart.split('\n').map((line, k) => <p key={`${i}-${j}-${k}`}>{line}</p>);
+      });
     });
   };
 
@@ -61,7 +77,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isCallActive = f
         className={`max-w-xs md:max-w-md lg:max-w-2xl px-4 py-3 rounded-2xl ${
           isUser
             ? `${userBubbleColor} rounded-br-none`
-            // Fix: Removed a stray single quote that was causing a syntax error.
             : `${modelBubbleColor} rounded-bl-none`
         }`}
       >
