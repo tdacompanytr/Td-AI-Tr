@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export const UserIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -172,5 +171,24 @@ export const MicrophoneOffIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props
         <path d="M9 4a3 3 0 0 0 3 3v5" />
         <line x1="12" y1="19" x2="12" y2="23" />
         <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+);
+
+export const MusicIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg
+        {...props}
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+    >
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
     </svg>
 );

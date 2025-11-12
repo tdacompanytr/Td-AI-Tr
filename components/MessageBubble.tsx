@@ -10,6 +10,7 @@ const MediaPreview: React.FC<{ file: FileData }> = ({ file }) => {
   const src = `data:${file.mimeType};base64,${file.base64}`;
   const isImage = file.mimeType.startsWith('image/');
   const isVideo = file.mimeType.startsWith('video/');
+  const isAudio = file.mimeType.startsWith('audio/');
 
   return (
     <div className="mt-2 rounded-lg overflow-hidden">
@@ -17,6 +18,8 @@ const MediaPreview: React.FC<{ file: FileData }> = ({ file }) => {
         <img src={src} alt="User upload" className="max-w-xs max-h-64 object-contain" />
       ) : isVideo ? (
         <video src={src} controls className="max-w-xs max-h-64" />
+      ) : isAudio ? (
+        <audio src={src} controls className="w-full max-w-xs" />
       ) : null}
     </div>
   );

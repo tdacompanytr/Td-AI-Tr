@@ -266,23 +266,29 @@ const App: React.FC = () => {
 
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: { parts: [{ text: prompt }] },
-                config: { responseModalities: [Modality.IMAGE] },
+            const enhancedPrompt = `Canlı ve parlak renklere sahip, yüksek kaliteli, sinematik bir fotoğraf: ${prompt}`;
+            
+            const response = await ai.models.generateImages({
+                model: 'imagen-4.0-generate-001',
+                prompt: enhancedPrompt,
+                config: {
+                    numberOfImages: 1,
+                    outputMimeType: 'image/png',
+                    aspectRatio: '1:1',
+                },
             });
 
             let generatedImage: FileData | null = null;
-            for (const part of response.candidates[0].content.parts) {
-                if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
+            if (response.generatedImages && response.generatedImages.length > 0) {
+                const image = response.generatedImages[0];
+                if (image.image?.imageBytes) {
                     generatedImage = {
-                        base64: part.inlineData.data,
-                        mimeType: part.inlineData.mimeType,
+                        base64: image.image.imageBytes,
+                        mimeType: 'image/png',
                     };
-                    break;
                 }
             }
-
+            
             if (generatedImage) {
                 setMessages(prevMessages => {
                     const newMessages = [...prevMessages];
@@ -294,7 +300,7 @@ const App: React.FC = () => {
                     return newMessages;
                 });
             } else {
-                 const fallbackText = response.text || "Üzgünüm, bir görsel oluşturamadım ama belki başka bir şey deneyebiliriz?";
+                 const fallbackText = "Üzgünüm, bir görsel oluşturamadım ama belki başka bir şey deneyebiliriz?";
                  setMessages(prevMessages => {
                     const newMessages = [...prevMessages];
                     newMessages[newMessages.length - 1].text = fallbackText;

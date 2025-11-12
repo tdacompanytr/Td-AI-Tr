@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SendIcon, PaperclipIcon, XIcon } from './Icons';
+import { SendIcon, PaperclipIcon, XIcon, MusicIcon } from './Icons';
 
 interface ChatInputProps {
   onSendMessage: (prompt: string, file?: File | null) => void;
@@ -84,9 +84,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isCallA
           </button>
           {file?.type.startsWith('image/') ? (
             <img src={filePreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
-          ) : (
+          ) : file?.type.startsWith('video/') ? (
             <video src={filePreview} className="w-full h-full object-cover rounded-lg" controls />
-          )}
+          ) : file?.type.startsWith('audio/') ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 rounded-lg p-2 text-center">
+                <MusicIcon className="w-12 h-12 text-gray-400" />
+                <p className="text-xs text-gray-300 mt-2 break-all">{file.name}</p>
+            </div>
+          ) : null}
         </div>
       )}
       <form onSubmit={handleSubmit} className="flex items-end space-x-3">
@@ -95,7 +100,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isCallA
           ref={fileInputRef}
           onChange={handleFileChange}
           className="hidden"
-          accept="image/*,video/*"
+          accept="image/*,video/*,audio/*"
           disabled={isDisabled}
         />
         <button
