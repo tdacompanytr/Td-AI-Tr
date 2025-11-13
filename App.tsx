@@ -292,8 +292,7 @@ const App: React.FC = () => {
             });
         } catch (e: any) {
             console.error(e);
-            const errorMessage = e.message || "An unexpected error occurred.";
-            setError(`Error: ${errorMessage}`);
+            setError(tr.generalApiError);
             setMessages(prev => {
                 const newMessages = [...prev];
                 const index = newMessages.length -1;
@@ -359,13 +358,12 @@ const App: React.FC = () => {
 
         } catch (e: any) {
             console.error(e);
-            const errorMessage = e.message || "An unexpected error occurred.";
-            setError(`Error: ${errorMessage}`);
+            setError(tr.generalApiError);
             setMessages(prev => {
                 const newMessages = [...prev];
                 const index = newMessages.length -1;
                  if (index > -1 && newMessages[index].text === placeholderText) {
-                    newMessages[index] = { role: 'model', text: `${tr.imageGenErrorPrefix}${errorMessage}` };
+                    newMessages[index] = { role: 'model', text: tr.imageGenError };
                 }
                 return newMessages;
             });
@@ -420,11 +418,10 @@ const App: React.FC = () => {
           }
         } catch (e: any) {
           console.error(e);
-          const errorMessage = e.message || "An unexpected error occurred.";
-          setError(`Error: ${errorMessage}`);
+          setError(tr.generalApiError);
           setMessages(prevMessages => {
               const newMessages = [...prevMessages];
-              newMessages[newMessages.length - 1].text = `${tr.chatError}${errorMessage}`;
+              newMessages[newMessages.length - 1].text = tr.generalApiError;
               return newMessages;
             });
         } finally {
@@ -633,7 +630,11 @@ const App: React.FC = () => {
           },
           onerror: (e: ErrorEvent) => {
             console.error('Live session error:', e);
-            setError(`${tr.videoCallError}${e.message}${tr.videoCallErrorSuffix}`);
+            if (e.message && (e.message.toLowerCase().includes('api key') || e.message.toLowerCase().includes('permission denied'))) {
+              setError(tr.chatInitError); // Re-use the helpful API key error message
+            } else {
+              setError(`${tr.videoCallError}${e.message || 'Bilinmeyen bir hata oluştu.'}`);
+            }
             stopVideoCall();
           },
           onclose: () => {
@@ -644,7 +645,11 @@ const App: React.FC = () => {
       });
     } catch (err: any) {
         console.error("Failed to start video call:", err);
-        setError(`${tr.mediaAccessError}${err.message}`);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setError(tr.mediaAccessError);
+        } else {
+          setError(`${tr.mediaAccessErrorTechnical}${err.message}`);
+        }
         setIsConnecting(false);
     }
   };

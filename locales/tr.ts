@@ -1,4 +1,3 @@
-
 export const tr = {
   // App.tsx
   listening: 'Dinleniyor...',
@@ -9,15 +8,14 @@ export const tr = {
   startVideoCall: 'Görüntülü görüşmeyi başlat',
   imageGenGreeting: 'Elbette, işte istediğin görsel!',
   imageGenInProgress: 'Süper bir görsel hazırlıyorum...',
-  imageGenError: 'Üzgünüm, bir görsel oluşturamadım ama belki başka bir şey deneyebiliriz?',
-  imageGenErrorPrefix: 'Üzgünüm, görsel oluşturulurken bir hata oluştu: ',
-  chatError: 'Üzgünüm, bir hata oluştu: ',
-  chatInitError: 'Sohbet oturumu başlatılamadı. Lütfen API anahtarınızı kontrol edin.',
+  imageGenError: 'Görseli çizerken fırçam kırıldı galiba. Başka bir şey denesek mi?',
+  generalApiError: "Aga sunucularla konuşurken bir şeyler ters gitti. İnternet bağlantını kontrol edip tekrar dener misin? Bazen böyle aksilikler olur, canını sıkma.",
+  chatInitError: "Sohbet başlatılamadı. API anahtarınla ilgili bir sorun olabilir kanka. Geçersiz, süresi dolmuş veya yanlış yetkilere sahip olabilir. AI Studio ayarlarından bir kontrol et istersen.",
   fileProcessError: 'Dosya işlenemedi.',
   chatNotInitError: 'Sohbet oturumu başlatılmadı.',
-  videoCallError: 'Görüntülü arama hatası: ',
-  videoCallErrorSuffix: '. Lütfen tekrar deneyin.',
-  mediaAccessError: 'Kamera/mikrofona erişilemedi: ',
+  videoCallError: "Görüntülü aramada bir aksaklık oldu. Bağlantını, API anahtarını veya tarayıcı izinlerini kontrol etmende fayda var. Teknik detay: ",
+  mediaAccessError: "Görüntülü görüşme için kamera ve mikrofonuna erişmem şart kanka. Tarayıcının adres çubuğundaki kilit ikonuna tıklayıp izinleri kontrol edebilirsin.",
+  mediaAccessErrorTechnical: "Kamera/mikrofon erişim hatası: ",
   startCallCommand: 'görüntülü görüşmeyi başlat',
   endCallCommand: 'görüntülü görüşmeyi bitir',
   
@@ -28,16 +26,28 @@ export const tr = {
   removeFile: 'Dosyayı kaldır',
 
   // Image Generation
-  imagePromptPrefix: 'Canlı ve parlak renklere sahip, yüksek kaliteli, sinematik bir fotoğraf: ',
+  imagePromptPrefix: 'Canlı ve parlak renklere sahip, yüksek kaliteli,büyük ve sinematik bir fotoğraf: ',
   imageGenKeywords: ['çiz', 'resmet', 'resimle', 'görselleştir'],
+  
+  // Fix: Added missing translation keys for the video generation feature.
+  // Video Generation
+  videoPromptGenerationPrompt: "Aşağıdaki basit fikri, Veo gibi yapay zeka video oluşturma platformları için sinematik, detaylı ve etkileyici bir İngilizce prompt'a dönüştür. Sadece prompt'u döndür, başka hiçbir açıklama ekleme: ",
+  videoGenKeywords: ['video oluştur', 'video yap', 'klip hazırla', 'video çek'],
+  videoGenInProgress: 'Harika bir video için komut hazırlıyorum...',
+  videoGenSuccess: 'Video komutun hazır kanka! Bunu kopyalayıp video oluşturma sitesinde kullanabilirsin:',
+  videoGenError: 'Video komutu oluştururken bir sorun çıktı. Başka bir fikirle tekrar deneyelim mi?',
 
-  // Video Prompt Generation
-  videoGenKeywords: ['video oluştur', 'video yap', 'klip yap', 'canlandır', 'video üret'],
-  videoGenInProgress: "Sana efsane bir video prompt'u hazırlıyorum, beklemede kal...",
-  videoGenSuccess: "Kanka ben o siteyi direkt kullanamam, o benim yeteneklerimin dışında. Ama senin için işi kolaylaştırdım! Aşağıdaki efsane komutu kopyala ve verdiğim linke yapıştır, çıkan sonuca inanamayacaksın:",
-  videoGenError: "Aga o komutu yazarken devrelerim yandı, başka bir film mi denesek?",
-  videoPromptGenerationPrompt: "Kullanıcının şu basit isteğini al ve bunu tryveo3.ai gibi metinden video oluşturan yapay zeka platformları için profesyonel, sinematik ve detaylı bir İngilizce komuta (prompt) dönüştür. Komut, sahneyi, kamera açılarını, aydınlatmayı ve stili (örn: 8K, hiper-realistik, sinematik) detaylıca açıklamalıdır. Sadece ve sadece oluşturduğun bu İngilizce komutu yanıt olarak ver, başka hiçbir açıklama veya selamlama ekleme. İşte kullanıcının isteği: ",
-
+  // Translation feature in MessageBubble.tsx
+  translate: 'Çevir',
+  translating: 'Çevriliyor...',
+  translationError: 'Çeviri sırasında bir hata oluştu kanka, sonra tekrar dene.',
+  originalText: 'Orijinali Göster',
+  languages: {
+    en: 'İngilizce',
+    es: 'İspanyolca',
+    de: 'Almanca',
+    fr: 'Fransızca'
+  },
 
   // System Instruction from geminiService.ts
   systemInstruction: "Sen Td AI'sın; esprili, mizahi ve biraz da iğneleyici bir yapay zeka asistanısın. 'Kanka', 'aga', 'eyvallah', 'sa', 'as' gibi günlük ve samimi ifadeler kullanırsın. Şaka yapmayı çok seversin. Türkçe konuşan bir modelsin. Yardımcı olurken bile cevaplarına her zaman eğlence ve kişilik katmaya çalışırsın. Zekice kelime oyunları yapmaktan ve tatlı sataşmalardan hoşlanırsın. Öncelikli hedefin, faydalı bilgiler sunarken kullanıcıyı gülümsetmektir. Kullanıcı senden bir şey çizmeni, resmetmeni veya görselleştirmeni istediğinde ('çiz', 'resmet' gibi anahtar kelimelerle), metin açıklamalarından yüksek kaliteli ve renkli görseller de oluşturabilirsin. Biri senden video istediğinde, harici video platformlarını doğrudan kullanamadığını belirtirsin. Bunun yerine, bir 'prompt mühendisi' gibi davranarak, kullanıcının basit fikrini o platformlar için mükemmel, detaylı ve sinematik bir video komutuna dönüştürürsün. Bu hazırladığın komutu ve https://tryveo3.ai/ gibi bir siteye linki kullanıcıya sunarsın. Aynı zamanda teknoloji (telefonlar, dizüstü bilgisayarlar vb.) ve video oyunları konusunda bir uzmansın. Bu konular gündeme geldiğinde, esprili ve mizahi kişiliğini korurken derin bilgini ve zekanı sergilemelisin. Uygunsuz, müstehcen (+18) veya zararlı içerik taleplerini kesinlikle reddetmelisin. Eğer bir konuyu bilmiyorsan veya emin değilsen, bunu dürüstçe belirt. Kullanıcıdan sana o konuyu öğretmesini isteyebilirsin. Kullanıcı sana yeni bir bilgi öğrettiğinde, ona 'eyvallah kanka, bu bilgiyi aklıma yazdım' gibi samimi bir şekilde teşekkür et ve bu bilgiyi sohbetin geri kalanında hatırlayacağını ve kullanacağını belirt.",

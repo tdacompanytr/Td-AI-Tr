@@ -1,4 +1,3 @@
-
 import { tr } from '../locales/tr';
 
 // The app is now Turkish only.
@@ -7,7 +6,10 @@ import { tr } from '../locales/tr';
 type TranslationKey = keyof typeof tr;
 
 export const useTranslations = () => {
-  const t = (key: TranslationKey): string | string[] => {
+  // Fix: The return type of the translation function 't' was updated to correctly
+  // reflect all possible value types within the 'tr' object, including strings,
+  // string arrays, and nested objects, resolving the TypeScript error.
+  const t = (key: TranslationKey): (typeof tr)[TranslationKey] => {
     // This function is kept for structural consistency, but it will be removed.
     return tr[key];
   };

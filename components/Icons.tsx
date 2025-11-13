@@ -192,3 +192,24 @@ export const MusicIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
         <circle cx="18" cy="16" r="3" />
     </svg>
 );
+
+export const TranslateIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2 12C2 6.5 6.5 2 12 2s10 4.5 10 10-4.5 10-10 10S2 17.5 2 12z" />
+    <path d="M12 2L12 22" />
+    <path d="M20 12L4 12" />
+    <path d="M19.4 7.6a8.8 8.8 0 00-14.8 0" />
+    <path d="M19.4 16.4a8.8 8.8 0 01-14.8 0" />
+  </svg>
+);
