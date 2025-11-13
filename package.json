@@ -20,11 +20,3 @@
     "vite": "^6.2.0"
   }
 }
-{
-  "name": "netlify-ai-functions",
-  "version": "1.0.0",
-  "description": "Netlify functions for Gemini AI chat.",
-  "dependencies": {
-    "@google/generative-ai": "^0.1.0"
-  }
-}
