@@ -43,6 +43,7 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
             <button
                 onClick={onNewChat}
                 className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors"
+                title={tr.chatHistory.newChatShortcut}
             >
                 {tr.chatHistory.newChat}
                 <PlusIcon className="w-5 h-5" />

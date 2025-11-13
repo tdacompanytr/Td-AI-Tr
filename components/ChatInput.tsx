@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { SendIcon, PaperclipIcon, XIcon, MusicIcon } from './Icons';
+import { tr } from '../locales/tr';
 
 interface ChatInputProps {
   onSendMessage: (prompt: string, file?: File | null) => void;
@@ -59,9 +60,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && ((e.metaKey || e.ctrlKey) || !e.shiftKey)) {
       e.preventDefault();
-      handleSubmit(e);
+      handleSubmit(e as any);
     }
   };
 
@@ -137,6 +138,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           type="submit"
           disabled={isDisabled || (!input.trim() && !file)}
           className="w-10 h-10 flex-shrink-0 bg-red-600 rounded-full flex items-center justify-center text-white disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200 hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+          title={tr.chat.sendShortcutTooltip}
         >
           {isLoading && !isCallActive ? (
             <div className="w-5 h-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>

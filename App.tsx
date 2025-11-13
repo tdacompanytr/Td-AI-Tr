@@ -428,10 +428,244 @@ const App: React.FC = () => {
     setSimulatedCode(null);
   }, []);
 
-  const toggleVoiceCommands = () => {
+  const toggleVoiceCommands = useCallback(() => {
     setIsVoiceCommandEnabled(prev => !prev);
-  };
+  }, []);
 
+  const stopVideoCall = useCallback(() => {
+    setIsConnecting(false);
+    setIsCallActive(false);
+
+    sessionPromiseRef.current?.then(session => session.close());
+    sessionPromiseRef.current = null;
+    
+    localStream?.getTracks().forEach(track => track.stop());
+    setLocalStream(null);
+
+    if (frameIntervalRef.current) {
+        clearInterval(frameIntervalRef.current);
+        frameIntervalRef.current = null;
+    }
+    
+    scriptProcessorRef.current?.disconnect();
+    scriptProcessorRef.current = null;
+    mediaStreamSourceRef.current?.disconnect();
+    mediaStreamSourceRef.current = null;
+    
+    inputAudioContextRef.current?.close();
+    outputAudioContextRef.current?.close();
+    
+    for (const source of audioSourcesRef.current.values()) {
+        source.stop();
+    }
+    audioSourcesRef.current.clear();
+    nextStartTimeRef.current = 0;
+
+    const callEndMessage = { role: 'model' as const, text: "Görüntülü görüşme bitti." };
+    if(activeChatId) {
+       setChatHistory(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, callEndMessage] } : c));
+    }
+
+  }, [localStream, activeChatId]);
+
+  const startVideoCall = useCallback(async () => {
+    setIsConnecting(true);
+    setError(null);
+    try {
+        const apiKey = process.env.API_KEY;
+        if (!apiKey) {
+            throw new Error('API_KEY_MISSING');
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 1280, height: 720 },
+            audio: {
+                sampleRate: 16000,
+                channelCount: 1,
+            },
+        });
+        setLocalStream(stream);
+
+        inputAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        outputAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+        outputGainNodeRef.current = outputAudioContextRef.current.createGain();
+        outputGainNodeRef.current.connect(outputAudioContextRef.current.destination);
+
+        const ai = new GoogleGenAI({ apiKey });
+        sessionPromiseRef.current = ai.live.connect({
+            model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+            callbacks: {
+                onopen: () => {
+                    console.log("Live session opened.");
+                    setIsConnecting(false);
+                    setIsCallActive(true);
+
+                    // Add a welcome message from the AI in the chat
+                    const callStartMessage = { role: 'model' as const, text: "Görüntülü görüşme başladı! "};
+                    
+                    if (activeChatId) {
+                        setChatHistory(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, callStartMessage] } : c));
+                    } else {
+                        // This case is unlikely if a chat is always active, but as a fallback:
+                        const newChatId = Date.now().toString();
+                        const newChatSession: ChatSession = { id: newChatId, title: "Video Call", messages: [...messages, callStartMessage] };
+                        setChatHistory(prev => [newChatSession, ...prev]);
+                        setActiveChatId(newChatId);
+                    }
+
+
+                    // Start sending audio
+                    const source = inputAudioContextRef.current!.createMediaStreamSource(stream);
+                    mediaStreamSourceRef.current = source;
+                    const scriptProcessor = inputAudioContextRef.current!.createScriptProcessor(4096, 1, 1);
+                    scriptProcessorRef.current = scriptProcessor;
+
+                    scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
+                        const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
+                        const pcmBlob = createBlob(inputData);
+                        sessionPromiseRef.current?.then((session) => {
+                            if (!isMuted) {
+                                session.sendRealtimeInput({ media: pcmBlob });
+                            }
+                        });
+                    };
+                    source.connect(scriptProcessor);
+                    scriptProcessor.connect(inputAudioContextRef.current!.destination);
+
+                    // Start sending video frames
+                    const videoEl = videoRef.current;
+                    const canvasEl = canvasRef.current;
+                    if (videoEl && canvasEl) {
+                        const ctx = canvasEl.getContext('2d');
+                        if (ctx) {
+                            frameIntervalRef.current = window.setInterval(() => {
+                                canvasEl.width = videoEl.videoWidth;
+                                canvasEl.height = videoEl.videoHeight;
+                                ctx.drawImage(videoEl, 0, 0, videoEl.videoWidth, videoEl.videoHeight);
+                                canvasEl.toBlob(
+                                    async (blob) => {
+                                        if (blob) {
+                                            const base64Data = await blobToBase64(blob);
+                                            sessionPromiseRef.current?.then((session) => {
+                                                session.sendRealtimeInput({
+                                                    media: { data: base64Data, mimeType: 'image/jpeg' }
+                                                });
+                                            });
+                                        }
+                                    },
+                                    'image/jpeg',
+                                    JPEG_QUALITY
+                                );
+                            }, 1000 / FRAME_RATE);
+                        }
+                    }
+                },
+                onmessage: async (message: LiveServerMessage) => {
+                    if (message.serverContent?.modelTurn?.parts[0]?.inlineData?.data) {
+                        setIsAiSpeaking(true);
+                        if(speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+                        speakingTimeoutRef.current = window.setTimeout(() => setIsAiSpeaking(false), 2000);
+
+                        const base64Audio = message.serverContent.modelTurn.parts[0].inlineData.data;
+                        const audioContext = outputAudioContextRef.current!;
+                        const gainNode = outputGainNodeRef.current!;
+                        
+                        nextStartTimeRef.current = Math.max(
+                          nextStartTimeRef.current,
+                          audioContext.currentTime,
+                        );
+
+                        const audioBuffer = await decodeAudioData(
+                          decode(base64Audio),
+                          audioContext,
+                          24000,
+                          1,
+                        );
+
+                        const source = audioContext.createBufferSource();
+                        source.buffer = audioBuffer;
+                        source.connect(gainNode);
+                        source.addEventListener('ended', () => {
+                          audioSourcesRef.current.delete(source);
+                        });
+                        source.start(nextStartTimeRef.current);
+                        nextStartTimeRef.current += audioBuffer.duration;
+                        audioSourcesRef.current.add(source);
+                    }
+                     
+                    // Handle transcription
+                    if (message.serverContent?.inputTranscription) {
+                        currentInputTranscriptionRef.current += message.serverContent.inputTranscription.text;
+                    }
+                    if (message.serverContent?.outputTranscription) {
+                        currentOutputTranscriptionRef.current += message.serverContent.outputTranscription.text;
+                    }
+
+                    if (message.serverContent?.turnComplete) {
+                        const userTurn = currentInputTranscriptionRef.current.trim();
+                        const modelTurn = currentOutputTranscriptionRef.current.trim();
+                        
+                        const newMessages: Message[] = [];
+                        if (userTurn) {
+                            newMessages.push({ role: 'user', text: userTurn });
+                        }
+                        if (modelTurn) {
+                            newMessages.push({ role: 'model', text: modelTurn });
+                        }
+                        
+                        if(newMessages.length > 0) {
+                            if(activeChatId) {
+                               setChatHistory(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, ...newMessages] } : c));
+                            }
+                        }
+
+                        currentInputTranscriptionRef.current = '';
+                        currentOutputTranscriptionRef.current = '';
+                    }
+
+                    if (message.serverContent?.interrupted) {
+                        for (const source of audioSourcesRef.current.values()) {
+                            source.stop();
+                        }
+                        audioSourcesRef.current.clear();
+                        nextStartTimeRef.current = 0;
+                    }
+                },
+                onerror: (e: ErrorEvent) => {
+                    console.error('Live session error:', e);
+                    setError(`${tr.videoCall.error}${e.message}`);
+                    stopVideoCall();
+                },
+                onclose: () => {
+                    console.log("Live session closed.");
+                    stopVideoCall();
+                },
+            },
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+                },
+                inputAudioTranscription: {},
+                outputAudioTranscription: {},
+                systemInstruction: tr.systemInstruction,
+            },
+        });
+
+    } catch (e: any) {
+        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+            setError(tr.videoCall.mediaAccessError);
+        } else if (e.message === 'API_KEY_MISSING') {
+            setError(tr.common.apiKeyMissingError);
+        } else {
+            setError(`${tr.videoCall.mediaAccessErrorTechnical}${e.message}`);
+        }
+        console.error(e);
+        stopVideoCall();
+    }
+  }, [activeChatId, messages, isMuted, stopVideoCall]);
+
+  const toggleMute = useCallback(() => setIsMuted(prev => !prev), []);
+  
   useEffect(() => {
     // Attach stream to video element when it becomes available
     if (isCallActive && localStream && videoRef.current) {
@@ -505,8 +739,7 @@ const App: React.FC = () => {
     return () => {
       recognition?.stop();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCallActive, isConnecting, isVoiceCommandEnabled]);
+  }, [isCallActive, isConnecting, isVoiceCommandEnabled, startVideoCall, stopVideoCall]);
   
   const handleSendMessage = useCallback(async (prompt: string, file?: File | null) => {
     // Common logic for adding user message and setting loading state
@@ -777,240 +1010,72 @@ const App: React.FC = () => {
     }
   }, [messages, activeChatId, chatHistory]);
 
-  const startVideoCall = async () => {
-    setIsConnecting(true);
-    setError(null);
-    try {
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) {
-            throw new Error('API_KEY_MISSING');
+  // Effect to handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement;
+        const isInputFocused = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+        const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+        // Escape to close modals or sidebar
+        if (e.key === 'Escape') {
+            if (isProfileModalOpen) {
+                e.preventDefault();
+                setIsProfileModalOpen(false);
+                return;
+            }
+            if (isSidebarOpen) {
+                e.preventDefault();
+                setIsSidebarOpen(false);
+                return;
+            }
         }
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720 },
-            audio: {
-                sampleRate: 16000,
-                channelCount: 1,
-            },
-        });
-        setLocalStream(stream);
-
-        inputAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-        outputAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-        outputGainNodeRef.current = outputAudioContextRef.current.createGain();
-        outputGainNodeRef.current.connect(outputAudioContextRef.current.destination);
-
-        const ai = new GoogleGenAI({ apiKey });
-        sessionPromiseRef.current = ai.live.connect({
-            model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-            callbacks: {
-                onopen: () => {
-                    console.log("Live session opened.");
-                    setIsConnecting(false);
-                    setIsCallActive(true);
-
-                    // Add a welcome message from the AI in the chat
-                    const callStartMessage = { role: 'model' as const, text: "Görüntülü görüşme başladı! "};
-                    
-                    if (activeChatId) {
-                        setChatHistory(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, callStartMessage] } : c));
-                    } else {
-                        // This case is unlikely if a chat is always active, but as a fallback:
-                        const newChatId = Date.now().toString();
-                        const newChatSession: ChatSession = { id: newChatId, title: "Video Call", messages: [...messages, callStartMessage] };
-                        setChatHistory(prev => [newChatSession, ...prev]);
-                        setActiveChatId(newChatId);
-                    }
-
-
-                    // Start sending audio
-                    const source = inputAudioContextRef.current!.createMediaStreamSource(stream);
-                    mediaStreamSourceRef.current = source;
-                    const scriptProcessor = inputAudioContextRef.current!.createScriptProcessor(4096, 1, 1);
-                    scriptProcessorRef.current = scriptProcessor;
-
-                    scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
-                        const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-                        const pcmBlob = createBlob(inputData);
-                        sessionPromiseRef.current?.then((session) => {
-                            if (!isMuted) {
-                                session.sendRealtimeInput({ media: pcmBlob });
-                            }
-                        });
-                    };
-                    source.connect(scriptProcessor);
-                    scriptProcessor.connect(inputAudioContextRef.current!.destination);
-
-                    // Start sending video frames
-                    const videoEl = videoRef.current;
-                    const canvasEl = canvasRef.current;
-                    if (videoEl && canvasEl) {
-                        const ctx = canvasEl.getContext('2d');
-                        if (ctx) {
-                            frameIntervalRef.current = window.setInterval(() => {
-                                canvasEl.width = videoEl.videoWidth;
-                                canvasEl.height = videoEl.videoHeight;
-                                ctx.drawImage(videoEl, 0, 0, videoEl.videoWidth, videoEl.videoHeight);
-                                canvasEl.toBlob(
-                                    async (blob) => {
-                                        if (blob) {
-                                            const base64Data = await blobToBase64(blob);
-                                            sessionPromiseRef.current?.then((session) => {
-                                                session.sendRealtimeInput({
-                                                    media: { data: base64Data, mimeType: 'image/jpeg' }
-                                                });
-                                            });
-                                        }
-                                    },
-                                    'image/jpeg',
-                                    JPEG_QUALITY
-                                );
-                            }, 1000 / FRAME_RATE);
-                        }
-                    }
-                },
-                onmessage: async (message: LiveServerMessage) => {
-                    if (message.serverContent?.modelTurn?.parts[0]?.inlineData?.data) {
-                        setIsAiSpeaking(true);
-                        if(speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-                        speakingTimeoutRef.current = window.setTimeout(() => setIsAiSpeaking(false), 2000);
-
-                        const base64Audio = message.serverContent.modelTurn.parts[0].inlineData.data;
-                        const audioContext = outputAudioContextRef.current!;
-                        const gainNode = outputGainNodeRef.current!;
-                        
-                        nextStartTimeRef.current = Math.max(
-                          nextStartTimeRef.current,
-                          audioContext.currentTime,
-                        );
-
-                        const audioBuffer = await decodeAudioData(
-                          decode(base64Audio),
-                          audioContext,
-                          24000,
-                          1,
-                        );
-
-                        const source = audioContext.createBufferSource();
-                        source.buffer = audioBuffer;
-                        source.connect(gainNode);
-                        source.addEventListener('ended', () => {
-                          audioSourcesRef.current.delete(source);
-                        });
-                        source.start(nextStartTimeRef.current);
-                        nextStartTimeRef.current += audioBuffer.duration;
-                        audioSourcesRef.current.add(source);
-                    }
-                     
-                    // Handle transcription
-                    if (message.serverContent?.inputTranscription) {
-                        currentInputTranscriptionRef.current += message.serverContent.inputTranscription.text;
-                    }
-                    if (message.serverContent?.outputTranscription) {
-                        currentOutputTranscriptionRef.current += message.serverContent.outputTranscription.text;
-                    }
-
-                    if (message.serverContent?.turnComplete) {
-                        const userTurn = currentInputTranscriptionRef.current.trim();
-                        const modelTurn = currentOutputTranscriptionRef.current.trim();
-                        
-                        const newMessages: Message[] = [];
-                        if (userTurn) {
-                            newMessages.push({ role: 'user', text: userTurn });
-                        }
-                        if (modelTurn) {
-                            newMessages.push({ role: 'model', text: modelTurn });
-                        }
-                        
-                        if(newMessages.length > 0) {
-                            if(activeChatId) {
-                               setChatHistory(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, ...newMessages] } : c));
-                            }
-                        }
-
-                        currentInputTranscriptionRef.current = '';
-                        currentOutputTranscriptionRef.current = '';
-                    }
-
-                    if (message.serverContent?.interrupted) {
-                        for (const source of audioSourcesRef.current.values()) {
-                            source.stop();
-                        }
-                        audioSourcesRef.current.clear();
-                        nextStartTimeRef.current = 0;
-                    }
-                },
-                onerror: (e: ErrorEvent) => {
-                    console.error('Live session error:', e);
-                    setError(`${tr.videoCall.error}${e.message}`);
-                    stopVideoCall();
-                },
-                onclose: () => {
-                    console.log("Live session closed.");
-                    stopVideoCall();
-                },
-            },
-            config: {
-                responseModalities: [Modality.AUDIO],
-                speechConfig: {
-                    voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
-                },
-                inputAudioTranscription: {},
-                outputAudioTranscription: {},
-                systemInstruction: tr.systemInstruction,
-            },
-        });
-
-    } catch (e: any) {
-        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-            setError(tr.videoCall.mediaAccessError);
-        } else if (e.message === 'API_KEY_MISSING') {
-            setError(tr.common.apiKeyMissingError);
-        } else {
-            setError(`${tr.videoCall.mediaAccessErrorTechnical}${e.message}`);
+        
+        // Prevent global shortcuts when profile modal is open
+        if (isProfileModalOpen) {
+            return;
         }
-        console.error(e);
-        stopVideoCall();
-    }
-  };
 
-  const stopVideoCall = useCallback(() => {
-    setIsConnecting(false);
-    setIsCallActive(false);
+        // Toggle Sidebar: Ctrl + B (but not when typing)
+        if (isCtrlOrCmd && e.key.toLowerCase() === 'b' && !isInputFocused) {
+            e.preventDefault();
+            setIsSidebarOpen(prev => !prev);
+        }
 
-    sessionPromiseRef.current?.then(session => session.close());
-    sessionPromiseRef.current = null;
-    
-    localStream?.getTracks().forEach(track => track.stop());
-    setLocalStream(null);
+        // New Chat: Ctrl + Shift + N
+        if (isCtrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'n') {
+            e.preventDefault();
+            handleNewChat();
+        }
 
-    if (frameIntervalRef.current) {
-        clearInterval(frameIntervalRef.current);
-        frameIntervalRef.current = null;
-    }
-    
-    scriptProcessorRef.current?.disconnect();
-    scriptProcessorRef.current = null;
-    mediaStreamSourceRef.current?.disconnect();
-    mediaStreamSourceRef.current = null;
-    
-    inputAudioContextRef.current?.close();
-    outputAudioContextRef.current?.close();
-    
-    for (const source of audioSourcesRef.current.values()) {
-        source.stop();
-    }
-    audioSourcesRef.current.clear();
-    nextStartTimeRef.current = 0;
+        // Toggle Video Call: Ctrl + K
+        if (isCtrlOrCmd && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            if (!isConnecting) {
+                isCallActive ? stopVideoCall() : startVideoCall();
+            }
+        }
+        
+        // Toggle Voice Commands: Ctrl + Shift + L
+        if (isCtrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'l') {
+            e.preventDefault();
+            toggleVoiceCommands();
+        }
 
-    const callEndMessage = { role: 'model' as const, text: "Görüntülü görüşme bitti." };
-    if(activeChatId) {
-       setChatHistory(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, callEndMessage] } : c));
-    }
+        // Toggle Mute: Ctrl + D (only during call)
+        if (isCtrlOrCmd && e.key.toLowerCase() === 'd' && isCallActive) {
+            e.preventDefault();
+            toggleMute();
+        }
+    };
 
-  }, [localStream, activeChatId]);
-  
-  const toggleMute = () => setIsMuted(prev => !prev);
-  
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCallActive, isConnecting, isProfileModalOpen, isSidebarOpen, handleNewChat, stopVideoCall, startVideoCall, toggleVoiceCommands, toggleMute]);
+
+
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     setAiVolume(newVolume);
@@ -1059,7 +1124,7 @@ const App: React.FC = () => {
               {/* Header */}
               <header className="flex items-center justify-between p-4 border-b border-gray-800 absolute top-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm z-10">
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setIsSidebarOpen(true)} className="text-gray-400 hover:text-white lg:hidden">
+                    <button onClick={() => setIsSidebarOpen(true)} className="text-gray-400 hover:text-white lg:hidden" title={tr.chatHistory.toggleSidebarShortcut}>
                       <MenuIcon className="w-6 h-6" />
                     </button>
                     <h1 className="text-xl font-bold tracking-wider text-red-500">Td AI</h1>
@@ -1070,13 +1135,14 @@ const App: React.FC = () => {
                     <span className={`w-2 h-2 rounded-full ${isVoiceCommandEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-600'}`}></span>
                     <span>{isVoiceCommandEnabled ? tr.app.listening : tr.app.voiceCommandsOff}</span>
                   </div>
-                  <button onClick={toggleVoiceCommands} className="text-gray-400 hover:text-white" aria-label={isVoiceCommandEnabled ? tr.app.disableVoiceCommands : tr.app.enableVoiceCommands}>
+                  <button onClick={toggleVoiceCommands} className="text-gray-400 hover:text-white" title={isVoiceCommandEnabled ? tr.app.disableVoiceCommandsShortcut : tr.app.enableVoiceCommandsShortcut} aria-label={isVoiceCommandEnabled ? tr.app.disableVoiceCommands : tr.app.enableVoiceCommands}>
                       {isVoiceCommandEnabled ? <MicrophoneIcon className="w-5 h-5" /> : <MicrophoneOffIcon className="w-5 h-5" />}
                   </button>
                   <button
                     onClick={isCallActive ? stopVideoCall : startVideoCall}
                     disabled={isConnecting}
                     className="p-2 rounded-full bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50"
+                    title={isCallActive ? tr.videoCall.endShortcut : tr.videoCall.startShortcut}
                     aria-label={isCallActive ? tr.videoCall.end : tr.videoCall.start}
                   >
                     {isConnecting ? (
@@ -1128,7 +1194,7 @@ const App: React.FC = () => {
                      <canvas ref={canvasRef} className="hidden"></canvas>
                      {/* Call Controls */}
                      <div className="absolute bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/50 backdrop-blur-sm p-3 rounded-full">
-                        <button onClick={toggleMute} className={`p-3 rounded-full ${isMuted ? 'bg-red-600' : 'bg-gray-700'} hover:bg-gray-600`}>
+                        <button onClick={toggleMute} title={isMuted ? tr.videoCall.unmuteShortcut : tr.videoCall.muteShortcut} className={`p-3 rounded-full ${isMuted ? 'bg-red-600' : 'bg-gray-700'} hover:bg-gray-600`}>
                             {isMuted ? <MicrophoneOffIcon className="w-6 h-6"/> : <MicrophoneIcon className="w-6 h-6"/>}
                         </button>
                         <div className="relative group flex items-center gap-2">
@@ -1144,7 +1210,7 @@ const App: React.FC = () => {
                                 aria-label={tr.videoCall.aiVolume}
                             />
                         </div>
-                        <button onClick={stopVideoCall} className="p-3 rounded-full bg-red-800 hover:bg-red-700">
+                        <button onClick={stopVideoCall} title={tr.videoCall.endShortcut} className="p-3 rounded-full bg-red-800 hover:bg-red-700">
                             <VideoOffIcon className="w-6 h-6"/>
                         </button>
                      </div>
