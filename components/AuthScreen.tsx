@@ -67,14 +67,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
   if (authStep === 'email') {
     return commonWrapper(
         <>
-          <p className="text-gray-400 mt-2 mb-8">{tr.signInPrompt}</p>
+          <p className="text-gray-400 mt-2 mb-8">{tr.auth.signInPrompt}</p>
           <div className="flex flex-col gap-4">
             <input
               type="email"
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
               onKeyDown={handleEmailKeyDown}
-              placeholder={tr.emailPlaceholder}
+              placeholder={tr.auth.emailPlaceholder}
               required
               autoFocus
               className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition"
@@ -88,10 +88,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
               {isSendingCode ? (
                   <>
                     <div className="w-5 h-5 border-2 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
-                    {tr.sendingCode}
+                    {tr.auth.sendingCode}
                   </>
               ) : (
-                tr.sendVerificationCode
+                tr.auth.sendVerificationCode
               )}
             </button>
           </div>
@@ -102,12 +102,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
   // authStep === 'code'
   return commonWrapper(
     <>
-      <p className="text-gray-400 mt-4 mb-1">{tr.verificationCodePrompt.replace('[email]', verifyingEmail)}</p>
-      <button onClick={onChangeEmail} className="text-sm text-red-400 hover:underline mb-6">{tr.changeEmail}</button>
+      <p className="text-gray-400 mt-4 mb-1">{tr.auth.verificationCodePrompt.replace('[email]', verifyingEmail)}</p>
+      <button onClick={onChangeEmail} className="text-sm text-red-400 hover:underline mb-6">{tr.auth.changeEmail}</button>
       
       {simulatedCode && (
         <div className="bg-gray-900 border border-dashed border-gray-700 rounded-lg p-3 text-center mb-6">
-          <p className="text-xs text-gray-500 mb-1">{tr.simulatedCodeNotice}</p>
+          <p className="text-xs text-gray-500 mb-1">{tr.auth.simulatedCodeNotice}</p>
           <p className="text-2xl font-bold tracking-[0.2em] text-white bg-gray-800 rounded py-1">{simulatedCode}</p>
         </div>
       )}
@@ -120,7 +120,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
           value={codeInput}
           onChange={(e) => setCodeInput(e.target.value.replace(/[^0-9]/g, ''))}
           onKeyDown={handleCodeKeyDown}
-          placeholder={tr.enterVerificationCode}
+          placeholder={tr.auth.enterVerificationCode}
           required
           autoFocus
           className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white text-center text-2xl tracking-[0.3em] placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition"
@@ -132,7 +132,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
           disabled={codeInput.length < 6}
           className="w-full px-4 py-3 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
         >
-          {tr.verifyAndLogin}
+          {tr.auth.verifyAndLogin}
         </button>
       </div>
     </>

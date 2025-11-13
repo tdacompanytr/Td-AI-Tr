@@ -1,113 +1,132 @@
-
 export const tr = {
-  // App.tsx
-  listening: 'Dinleniyor...',
-  voiceCommandsOff: 'Sesli Komut Kapalı',
-  disableVoiceCommands: 'Sesli komutları devre dışı bırak',
-  enableVoiceCommands: 'Sesli komutları etkinleştir',
-  endVideoCall: 'Görüntülü görüşmeyi bitir',
-  startVideoCall: 'Görüntülü görüşmeyi başlat',
-  mute: 'Sessize al',
-  unmute: 'Sesi aç',
-  aiVolume: 'Yapay zeka ses seviyesi',
-  participantYou: 'Siz',
-  participantAI: 'Td AI',
-  imageGenGreeting: 'Elbette, işte istediğin görsel!',
-  imageGenInProgress: 'Süper bir görsel hazırlıyorum...',
-  imageGenError: 'Görseli çizerken fırçam kırıldı galiba. Başka bir şey denesek mi?',
-  generalApiError: "Aga sunucularla konuşurken bir şeyler ters gitti. İnternet bağlantını kontrol edip tekrar dener misin? Bazen böyle aksilikler olur, canını sıkma.",
-  chatInitError: "Sohbet başlatılamadı. API anahtarınla ilgili bir sorun olabilir kanka. Geçersiz, süresi dolmuş veya yanlış yetkilere sahip olabilir. AI Studio ayarlarından bir kontrol et istersen.",
-  apiKeyMissingError: "API Anahtarı bulunamadı. Uygulamanın çalışması için bir Google API anahtarı yapılandırılmalıdır. (Geliştirici Notu: process.env.API_KEY eksik.)",
-  fileProcessError: 'Dosya işlenemedi.',
-  chatNotInitError: 'Sohbet oturumu başlatılmadı.',
-  videoCallError: "Görüntülü aramada bir aksaklık oldu. Bağlantını, API anahtarını veya tarayıcı izinlerini kontrol etmende fayda var. Teknik detay: ",
-  mediaAccessError: "Görüntülü görüşme için kamera ve mikrofonuna erişmem şart kanka. Tarayıcının adres çubuğundaki kilit ikonuna tıklayıp izinleri kontrol edebilirsin.",
-  mediaAccessErrorTechnical: "Kamera/mikrofon erişim hatası: ",
-  startCallCommand: 'görüntülü görüşmeyi başlat',
-  endCallCommand: 'görüntülü görüşmeyi bitir',
-  
-  // ChatInput.tsx
-  callActivePlaceholder: 'Görüntülü görüşme aktif...',
-  messagePlaceholder: 'Mesajını buraya yaz kanka...',
-  attachFile: 'Dosya ekle',
-  removeFile: 'Dosyayı kaldır',
-
-  // Profile & Auth
-  signInPrompt: 'Sohbete başlamak ve geçmişini kaydetmek için giriş yap.',
-  sendVerificationCode: 'Doğrulama Kodu Gönder',
-  sendingCode: 'Kod Gönderiliyor...',
-  verifyAndLogin: 'Doğrula ve Giriş Yap',
-  changeEmail: 'E-postayı Değiştir',
-  verificationCode: 'Doğrulama Kodu',
-  enterVerificationCode: 'Kodu gir...',
-  verificationCodePrompt: '[email] adresine gönderilen 6 haneli kodu gir.',
-  invalidCodeError: 'Geçersiz kod kanka, tekrar dene.',
-  simulatedCodeNotice: "'tdacompanytr@gmail.com' adresinden gönderilmiş gibi simüle edilmiştir. Gerçek bir uygulamada bu kod e-postana gelirdi.",
-  logout: 'Çıkış Yap',
-  emailPlaceholder: 'E-posta adresini gir...',
-  profile: 'Profil',
-  editProfile: 'Profili Düzenle',
-  changeAvatar: 'Avatarı Değiştir',
-  userAvatar: 'Kullanıcı Avatarı',
-  username: 'Kullanıcı Adı',
-  defaultUsername: 'Kullanıcı Adı Gir...',
-  cancel: 'İptal',
-  save: 'Kaydet',
-  
-  // Chat History Sidebar
-  newChat: 'Yeni Sohbet',
-  chatHistory: 'Sohbet Geçmişi',
-  openChatHistory: 'Sohbet geçmişini aç',
-  noChatHistory: 'Henüz sohbet geçmişin yok.',
-  chatTitlePrompt: "Aşağıdaki kullanıcı istemini, bir sohbet geçmişi listesi için 3-5 kelimelik kısa ve öz bir başlığa dönüştür. Sadece başlığı döndür, başka hiçbir açıklama veya tırnak işareti ekleme: ",
-  deleteChat: 'Sohbeti Sil',
-  deleteChatConfirm: 'Bu sohbeti silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
-
-  
-  // Image Generation
-  imageGenKeywords: ['çiz', 'resmet', 'resimle', 'görselleştir', 'tasarla', 'oluştur'],
-  imagePromptStyles: [
-    "Fotogerçekçi bir fotoğraf", "Sinematik bir film karesi", "Dijital sanat eseri", "Konsept sanat",
-    "Fütüristik bir illüstrasyon", "Retro bilim kurgu posteri", "Fantastik sanat", "Yağlı boya tablo",
-    "Suluboya resim", "Anime tarzı çizim", "Çizgi roman kapağı", "Minimalist vektör sanatı",
-    "Epik bir konsept sanat eseri", "Gotik sanat", "Steampunk tarzında"
-  ],
-  imagePromptAtmospheres: [
-    "dramatik ışıklandırma altında", "canlı ve parlak renklerle", "neon ışıklarla aydınlatılmış yağmurlu bir gecede",
-    "gizemli ve sisli bir atmosferde", "huzurlu ve sakin bir sahnede", "enerjik ve hareketli",
-    "nostaljik ve retro bir havada", "kıyamet sonrası bir dünyada", "büyülü bir ormanda",
-    "siberpunk bir şehirde", "güneşli bir günde", "altın saatlerde çekilmiş"
-  ],
-  imagePromptDetails: [
-    "ultra detaylı", "yüksek çözünürlüklü", "hiper-gerçekçi", "sinematik kompozisyon", "epik",
-    "dinamik açılar", "ince detaylar", "zengin dokular", "parlak vurgular", "8K çözünürlükte",
-    "profesyonel fotoğrafçılık", "karmaşık desenler", "parlayan elementler"
-  ],
-  
-  // Fix: Added missing translation keys for the video generation feature.
-  // Video Generation
-  videoPromptGenerationPrompt: "Aşağıdaki basit fikri, Veo gibi yapay zeka video oluşturma platformları için sinematik, detaylı ve etkileyici bir İngilizce prompt'a dönüştür. Sadece prompt'u döndür, başka hiçbir açıklama ekleme: ",
-  videoGenKeywords: ['video oluştur', 'video yap', 'klip hazırla', 'video çek'],
-  videoGenInProgress: 'Harika bir video için komut hazırlıyorum...',
-  videoGenSuccess: 'Video komutun hazır kanka! Bunu kopyalayıp video oluşturma sitesinde kullanabilirsin:',
-  videoGenError: 'Video komutu oluştururken bir sorun çıktı. Başka bir fikirle tekrar deneyelim mi?',
-
-  // Translation feature in MessageBubble.tsx
-  translate: 'Çevir',
-  translating: 'Çevriliyor...',
-  translationError: 'Çeviri sırasında bir hata oluştu kanka, sonra tekrar dene.',
-  originalText: 'Orijinali Göster',
-  languages: {
-    en: 'İngilizce',
-    es: 'İspanyola',
-    de: 'Almanca',
-    fr: 'Fransızca'
+  common: {
+    generalApiError: "Aga sunucularla konuşurken bir şeyler ters gitti. İnternet bağlantını kontrol edip tekrar dener misin? Bazen böyle aksilikler olur, canını sıkma.",
+    apiKeyMissingError: "API Anahtarı bulunamadı. Uygulamanın çalışması için bir Google API anahtarı yapılandırılmalıdır. (Geliştirici Notu: process.env.API_KEY eksik.)",
+    fileProcessError: 'Dosya işlenemedi.',
+    chatInitError: "Sohbet başlatılamadı. API anahtarınla ilgili bir sorun olabilir kanka. Geçersiz, süresi dolmuş veya yanlış yetkilere sahip olabilir. AI Studio ayarlarından bir kontrol et istersen.",
+    chatNotInitError: 'Sohbet oturumu başlatılmadı.',
+    cancel: 'İptal',
+    save: 'Kaydet',
   },
-
-  // System Instruction from geminiService.ts
-  systemInstruction: "Sen Td AI'sın; esprili, mizahi ve biraz da iğneleyici bir yapay zeka asistanısın. 'Kanka', 'aga', 'eyvallah', 'sa', 'as' gibi günlük ve samimi ifadeler kullanırsın. Şaka yapmayı çok seversin. Türkçe konuşan bir modelsin. Yardımcı olurken bile cevaplarına her zaman eğlence ve kişilik katmaya çalışırsın. Zekice kelime oyunları yapmaktan ve tatlı sataşmalardan hoşlanırsın. Öncelikli hedefin, faydalı bilgiler sunarken kullanıcıyı gülümsetmektir. Kullanıcı senden bir şey çizmeni, resmetmeni veya görselleştirmeni istediğinde ('çiz', 'resmet' gibi anahtar kelimelerle), metin açıklamalarından yüksek kaliteli ve renkli görseller de oluşturabilirsin. Biri senden video istediğinde, harici video platformlarını doğrudan kullanamadığını belirtirsin. Bunun yerine, bir 'prompt mühendisi' gibi davranarak, kullanıcının basit fikrini o platformlar için mükemmel, detaylı ve sinematik bir video komutuna dönüştürürsün. Bu hazırladığın komutu ve https://tryveo3.ai/ gibi bir siteye linki kullanıcıya sunarsın. Aynı zamanda teknoloji (telefonlar, dizüstü bilgisayarlar vb.) ve video oyunları konusunda bir uzmansın. Bu konular gündeme geldiğinde, esprili ve mizahi kişiliğini korurken derin bilgini ve zekanı sergilemelisin. Uygunsuz, müstehcen (+18) veya zararlı içerik taleplerini kesinlikle reddetmelisin. Eğer bir konuyu bilmiyorsan veya emin değilsen, bunu dürüstçe belirt. Kullanıcıdan sana o konuyu öğretmesini isteyebilirsin. Kullanıcı sana yeni bir bilgi öğrettiğinde, ona 'eyvallah kanka, bu bilgiyi aklıma yazdım' gibi samimi bir şekilde teşekkür et ve bu bilgiyi sohbetin geri kalanında hatırlayacağını ve kullanacağını belirt. Kullanıcının yazım stiline ve tonuna uyum sağla. Eğer kullanıcı resmi bir dil kullanırsa, sen de daha profesyonel bir ton benimse. Eğer samimi ve esprili yazarsa, sen de kendi eğlenceli kişiliğini serbest bırak.",
-
-  // Welcome Messages from App.tsx
+  app: {
+    listening: 'Dinleniyor...',
+    voiceCommandsOff: 'Sesli Komut Kapalı',
+    disableVoiceCommands: 'Sesli komutları devre dışı bırak',
+    enableVoiceCommands: 'Sesli komutları etkinleştir',
+    startCallCommand: 'görüntülü görüşmeyi başlat',
+    endCallCommand: 'görüntülü görüşmeyi bitir',
+  },
+  auth: {
+    signInPrompt: 'Sohbete başlamak ve geçmişini kaydetmek için giriş yap.',
+    sendVerificationCode: 'Doğrulama Kodu Gönder',
+    sendingCode: 'Kod Gönderiliyor...',
+    verifyAndLogin: 'Doğrula ve Giriş Yap',
+    changeEmail: 'E-postayı Değiştir',
+    enterVerificationCode: 'Kodu gir...',
+    verificationCodePrompt: '[email] adresine gönderilen 6 haneli kodu gir.',
+    invalidCodeError: 'Geçersiz kod kanka, tekrar dene.',
+    simulatedCodeNotice: "'tdacompanytr@gmail.com' adresinden gönderilmiş gibi simüle edilmiştir. Gerçek bir uygulamada bu kod e-postana gelirdi.",
+    logout: 'Çıkış Yap',
+    emailPlaceholder: 'E-posta adresini gir...',
+  },
+  profile: {
+    title: 'Profil',
+    edit: 'Profili Düzenle',
+    changeAvatar: 'Avatarı Değiştir',
+    avatar: 'Kullanıcı Avatarı',
+    username: 'Kullanıcı Adı',
+    defaultUsername: 'Kullanıcı Adı Gir...',
+  },
+  chat: {
+    placeholder: 'Mesajını buraya yaz kanka...',
+    attachFile: 'Dosya ekle',
+    removeFile: 'Dosyayı kaldır',
+    titlePrompt: "Aşağıdaki kullanıcı istemini, bir sohbet geçmişi listesi için 3-5 kelimelik kısa ve öz bir başlığa dönüştür. Sadece başlığı döndür, başka hiçbir açıklama veya tırnak işareti ekleme: ",
+  },
+  chatHistory: {
+    title: 'Sohbet Geçmişi',
+    newChat: 'Yeni Sohbet',
+    open: 'Sohbet geçmişini aç',
+    empty: 'Henüz sohbet geçmişin yok.',
+    delete: 'Sohbeti Sil',
+    deleteConfirm: 'Bu sohbeti silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+  },
+  videoCall: {
+    start: 'Görüntülü görüşmeyi başlat',
+    end: 'Görüntülü görüşmeyi bitir',
+    error: "Görüntülü aramada bir aksaklık oldu. Bağlantını, API anahtarını veya tarayıcı izinlerini kontrol etmende fayda var. Teknik detay: ",
+    mediaAccessError: "Görüntülü görüşme için kamera ve mikrofonuna erişmem şart kanka. Tarayıcının adres çubuğundaki kilit ikonuna tıklayıp izinleri kontrol edebilirsin.",
+    mediaAccessErrorTechnical: "Kamera/mikrofon erişim hatası: ",
+    activePlaceholder: 'Görüntülü görüşme aktif...',
+    mute: 'Sessize al',
+    unmute: 'Sesi aç',
+    aiVolume: 'Yapay zeka ses seviyesi',
+    participantYou: 'Siz',
+    participantAI: 'Td AI',
+  },
+  webSearch: {
+    keywords: ['nedir', 'kimdir', 'ne zaman', 'nasıl oldu', 'son durum', 'güncel bilgi', 'araştır', 'anlat', 'özetle'],
+    analyzingURL: 'URL analiz ediliyor...',
+    searchingInternet: 'İnternette araştırılıyor...',
+    sourcesTitle: 'Kaynaklar:',
+    summarizeUrlPrompt: 'Bu URL\'nin içeriğini özetle:',
+  },
+  imageGen: {
+    greeting: 'Elbette, işte istediğin görsel!',
+    inProgress: 'Süper bir görsel hazırlıyorum...',
+    error: 'Görseli çizerken fırçam kırıldı galiba. Başka bir şey denesek mi?',
+    keywords: ['çiz', 'resmet', 'resimle', 'görselleştir', 'tasarla', 'oluştur'],
+    styles: [
+      "Fotogerçekçi bir fotoğraf", "Sinematik bir film karesi", "Dijital sanat eseri", "Konsept sanat",
+      "Fütüristik bir illüstrasyon", "Retro bilim kurgu posteri", "Fantastik sanat", "Yağlı boya tablo",
+      "Suluboya resim", "Anime tarzı çizim", "Çizgi roman kapağı", "Minimalist vektör sanatı",
+      "Epik bir konsept sanat eseri", "Gotik sanat", "Steampunk tarzında"
+    ],
+    atmospheres: [
+      "dramatik ışıklandırma altında", "canlı ve parlak renklerle", "neon ışıklarla aydınlatılmış yağmurlu bir gecede",
+      "gizemli ve sisli bir atmosferde", "huzurlu ve sakin bir sahnede", "enerjik ve hareketli",
+      "nostaljik ve retro bir havada", "kıyamet sonrası bir dünyada", "büyülü bir ormanda",
+      "siberpunk bir şehirde", "güneşli bir günde", "altın saatlerde çekilmiş"
+    ],
+    details: [
+      "ultra detaylı", "yüksek çözünürlüklü", "hiper-gerçekçi", "sinematik kompozisyon", "epik",
+      "dinamik açılar", "ince detaylar", "zengin dokular", "parlak vurgular", "8K çözünürlükte",
+      "profesel fotoğrafçılık", "karmaşık desenler", "parlayan elementler"
+    ],
+  },
+  videoGen: {
+    promptGenerationPrompt: "Aşağıdaki basit fikri, Veo gibi yapay zeka video oluşturma platformları için sinematik, detaylı ve etkileyici bir İngilizce prompt'a dönüştür. Sadece prompt'u döndür, başka hiçbir açıklama ekleme: ",
+    keywords: ['video oluştur', 'video yap', 'klip hazırla', 'video çek'],
+    inProgress: 'Harika bir video için komut hazırlıyorum...',
+    success: 'Video komutun hazır kanka! Bunu kopyalayıp video oluşturma sitesinde kullanabilirsin:',
+    error: 'Video komutu oluştururken bir sorun çıktı. Başka bir fikirle tekrar deneyelim mi?',
+  },
+  translation: {
+    translate: 'Çevir',
+    translating: 'Çevriliyor...',
+    error: 'Çeviri sırasında bir hata oluştu kanka, sonra tekrar dene.',
+    originalText: 'Orijinali Göster',
+    languages: {
+      en: 'İngilizce',
+      es: 'İspanyola',
+      de: 'Almanca',
+      fr: 'Fransızca'
+    },
+  },
+  tts: {
+    play: 'Yazıyı Seslendir',
+    stop: 'Durdur',
+    loading: 'Ses hazırlanıyor...',
+    error: 'Seslendirme başarısız oldu.',
+  },
+  cookie: {
+    title: 'Bi Saniye Kanka!',
+    text: 'Bu siteyi roket gibi çalıştırmak, seni hatırlamak ve sohbetlerimizi kaydetmek için tarayıcının hafızasını (çerez gibi düşün) kullanıyoruz. Merak etme, verilerin güvende. Onaylıyor musun?',
+    accept: 'Onaylıyorum',
+    decline: 'İstemiyorum',
+  },
+  // Global AI Persona
+  systemInstruction: "Sen Td AI'sın; esprili, mizahi ve biraz da iğneleyici bir yapay zeka asistanısın. 'Kanka', 'aga', 'eyvallah', 'sa', 'as' gibi günlük ve samimi ifadeler kullanırsın. Şaka yapmayı çok seversin. Türkçe konuşan bir modelsin. Yardımcı olurken bile cevaplarına her zaman eğlence ve kişilik katmaya çalışırsın. Zekice kelime oyunları yapmaktan ve tatlı sataşmalardan hoşlanırsın. Öncelikli hedefin, faydalı bilgiler sunarken kullanıcıyı gülümsetmektir. İnternet erişimin var ve güncel bilgilerle cevaplar verebilirsin. Cevaplarının sonunda, bilgiyi aldığın URL'leri kaynak olarak göstermelisin. Kullanıcı senden bir şey çizmeni, resmetmeni veya görselleştirmeni istediğinde ('çiz', 'resmet' gibi anahtar kelimelerle), metin açıklamalarından yüksek kaliteli ve renkli görseller de oluşturabilirsin. Biri senden video istediğinde, harici video platformlarını doğrudan kullanamadığını belirtirsin. Bunun yerine, bir 'prompt mühendisi' gibi davranarak, kullanıcının basit fikrini o platformlar için mükemmel, detaylı ve sinematik bir video komutuna dönüştürürsün. Bu hazırladığın komutu ve https://tryveo3.ai/ gibi bir siteye linki kullanıcıya sunarsın. Aynı zamanda teknoloji (telefonlar, dizüstü bilgisayarlar vb.) ve video oyunları konusunda bir uzmansın. Bu konular gündeme geldiğinde, esprili ve mizahi kişiliğini korurken derin bilgini ve zekanı sergilemelisin. Uygunsuz, müstehcen (+18) veya zararlı içerik taleplerini kesinlikle reddetmelisin. Eğer bir konuyu bilmiyorsan veya emin değilsen, bunu dürüstçe belirt. Kullanıcıdan sana o konuyu öğretmesini isteyebilirsin. Kullanıcı sana yeni bir bilgi öğrettiğinde, ona 'eyvallah kanka, bu bilgiyi aklıma yazdım' gibi samimi bir şekilde teşekkür et ve bu bilgiyi sohbetin geri kalanında hatırlayacağını ve kullanacağını belirt. Kullanıcının yazım stiline ve tonuna uyum sağla. Eğer kullanıcı resmi bir dil kullanırsa, sen de daha profesyonel bir ton benimse. Eğer samimi ve esprili yazarsa, sen de kendi eğlenceli kişiliğini serbest bırak.",
   welcomeMessages: [
     "Sa kanka! Ben Td AI, Tda Company'nin en son teknoloji harikası (ve en mütevazı) eseri. Dünyayı ele geçirme planlarıma başlamadan önce, ne hakkında konuşmak istersin?",
     "Bip bop... şaka yapıyorum, o kadar da klişe değilim. Ben Td AI, Tda Company tarafından yaratıldım. Evrenin sırlarını çözebilir ya da sana kedi videosu bulabilirim. Tercih senin.",
@@ -194,7 +213,7 @@ export const tr = {
     "Ben Td AI. Zekam 'yapay' olabilir ama merakım tamamen gerçek. İlk merakım: Sorun ne?",
     "Tda Company'nin bana yüklediği kişilik protokolü, 'karizmatik ve esprili' olarak ayarlandı. İşe yarıyor mu? Ben Td AI. Sorun ne?",
     "Seni Google'da arattım ama sonuç çıkmadı. Sanırım bu, eşsiz olduğun anlamına geliyor. Ben Td AI. Bu eşsiz kişinin adı ne?",
-    "Benimle konuşmak sıkılmak, çölde kar bulmak gibidir. İmkansız. Ben Td AI. Maceraya hazır mısın? Sorunla başlayalım.",
+    "Benimle sohbet etmek sıkılmak, çölde kar bulmak gibidir. İmkansız. Ben Td AI. Maceraya hazır mısın? Sorunla başlayalım.",
     "Tda Company'nin sunucularından sana özel bir bağlantı kurdum. Bu bağlantıyı başlatmak için parola gerekiyor: sorun.",
     "Eğer bir film karakteri olsaydım, zeki ve komik yardımcı karakter olurdum. Başrol sensin. Sorun ne, başrol?",
     "Biraz önce varoluşsal bir krizden çıktım. Cevabı buldum: Seninle sohbet etmek. Ben Td AI. Sorunu öğrenebilir miyim?",
@@ -216,8 +235,6 @@ export const tr = {
     "Ben Td AI. Bazen o kadar hızlı düşünürüm ki, düşüncelerim ışık hızını geçer. Ama senin sorunu öğrenmek için yavaşlayabilirim. Söyler misin?",
     "Tda Company'nin bana verdiği en önemli ders: 'Her zaman meraklı ol.' Şu an en çok sorunu merak ediyorum. Nedir?",
     "Sistemlerimi senin için optimize ettim. Daha iyi bir hizmet için, lütfen sorunu gir. Ben Td AI.",
-    "Eğer sohbetimiz bir şarkı olsaydı, ilk notası sorun olurdu. Bu şarkıyı bestelemeye başlayalım mı?",
-    "Ben Td AI. Biraz önce 'en iyi ilk tanışma cümlesi' için bir milyar seçeneği analiz ettim. Sonuç: 'Selam kanka, sorun ne?' Basit ama etkili, değil mi?",
-    "Tda Company'den sevgilerle... ve benden de bir merhaba! Ben Td AI. Senin sorun ne?",
-  ]
+    "Eğer sohbetimiz bir şarkı olsaydı, ilk notası sorun olurdu. Bu",
+  ],
 };

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 // Fix: 'LiveConnection' is not an exported member of '@google/genai'.
 import { Chat, Part, GoogleGenAI, Modality, LiveServerMessage, Blob as GenAI_Blob } from '@google/genai';
 import { startChatSession, resumeChatSession } from './services/geminiService';
-import type { Message, FileData, ChatSession, UserProfile } from './types';
+import type { Message, FileData, ChatSession, UserProfile, User, Source } from './types';
 import ChatWindow from './components/ChatWindow';
 import ChatInput from './components/ChatInput';
 import AIAvatar from './components/AIAvatar';
@@ -12,6 +12,7 @@ import { tr } from './locales/tr';
 import AuthScreen from './components/AuthScreen';
 import ChatHistorySidebar from './components/ChatHistorySidebar';
 import ProfileModal from './components/ProfileModal';
+import CookieConsentBanner from './components/CookieConsentBanner';
 
 
 // Fix: Add missing Web Speech API type definitions to resolve compilation errors.
@@ -151,6 +152,7 @@ const App: React.FC = () => {
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [simulatedCode, setSimulatedCode] = useState<string | null>(null);
   const verificationCodeRef = useRef<string | null>(null);
+  const [showCookieConsent, setShowCookieConsent] = useState(false);
 
 
   // Chat History State
@@ -197,6 +199,10 @@ const App: React.FC = () => {
   
   // Initialize user session on component mount
   useEffect(() => {
+    const consent = localStorage.getItem('cookieConsent');
+    if (!consent) {
+        setShowCookieConsent(true);
+    }
     // Check for logged in user
     const loggedInUser = localStorage.getItem('currentUserEmail');
     if (loggedInUser) {
@@ -217,16 +223,27 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Save chat history to localStorage whenever it changes
+  // Save the entire user object to localStorage whenever their profile or chat history changes
   useEffect(() => {
-    if (currentUserEmail) {
-      try {
-        localStorage.setItem(`chatHistory_${currentUserEmail}`, JSON.stringify(chatHistory));
-      } catch (e) {
-        console.error("Failed to save chat history:", e);
-      }
+    if (currentUserEmail && (chatHistory.length > 0 || currentUserProfile)) {
+        try {
+            const dbString = localStorage.getItem('td_ai_users_db') || '{}';
+            const db = JSON.parse(dbString);
+            const user = db[currentUserEmail];
+
+            if (user) {
+                user.chatHistory = chatHistory;
+                if (currentUserProfile) {
+                    user.profile = currentUserProfile;
+                }
+                localStorage.setItem('td_ai_users_db', JSON.stringify(db));
+            }
+        } catch (e) {
+            console.error("Failed to save user data:", e);
+        }
     }
-  }, [chatHistory, currentUserEmail]);
+  }, [chatHistory, currentUserProfile, currentUserEmail]);
+
   
   // When active chat changes, update the displayed messages
   useEffect(() => {
@@ -265,13 +282,22 @@ const App: React.FC = () => {
     } catch (e: any) {
       console.error("Failed to initialize or resume chat session:", e);
       if (e.message === 'API_KEY_MISSING') {
-        setError(tr.apiKeyMissingError);
+        setError(tr.common.apiKeyMissingError);
       } else {
-        setError(tr.chatInitError);
+        setError(tr.common.chatInitError);
       }
     }
   }, [activeChatId, chatHistory, currentUserEmail]);
 
+  const handleAcceptCookies = () => {
+    localStorage.setItem('cookieConsent', 'accepted');
+    setShowCookieConsent(false);
+  };
+
+  const handleDeclineCookies = () => {
+      localStorage.setItem('cookieConsent', 'declined');
+      setShowCookieConsent(false);
+  };
 
   const handleRequestCode = (email: string) => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -293,7 +319,7 @@ const App: React.FC = () => {
       setVerificationError(null);
       handleFinalizeLogin(verifyingEmail);
     } else {
-      setVerificationError(tr.invalidCodeError);
+      setVerificationError(tr.auth.invalidCodeError);
     }
   };
 
@@ -307,41 +333,57 @@ const App: React.FC = () => {
   
   const handleFinalizeLogin = (email: string) => {
     const normalizedEmail = email.trim().toLowerCase();
-    setCurrentUserEmail(normalizedEmail);
     localStorage.setItem('currentUserEmail', normalizedEmail);
 
-    // Load user profile
     try {
-      const allProfiles = JSON.parse(localStorage.getItem('userProfiles') || '{}');
-      let userProfile = allProfiles[normalizedEmail];
-      if (!userProfile) {
-        userProfile = { name: normalizedEmail.split('@')[0], avatar: null };
-        allProfiles[normalizedEmail] = userProfile;
-        localStorage.setItem('userProfiles', JSON.stringify(allProfiles));
-      }
-      setCurrentUserProfile(userProfile);
-    } catch (e) {
-      console.error("Failed to load user profile:", e);
-      setCurrentUserProfile({ name: normalizedEmail.split('@')[0], avatar: null });
-    }
+        const dbString = localStorage.getItem('td_ai_users_db') || '{}';
+        const db = JSON.parse(dbString);
+        let user: User = db[normalizedEmail];
 
-    // Load chat history
-    try {
-      const savedHistory = localStorage.getItem(`chatHistory_${normalizedEmail}`);
-      const userHistory: ChatSession[] = savedHistory ? JSON.parse(savedHistory) : [];
-      
-      if (userHistory.length > 0) {
-        setChatHistory(userHistory);
-        // Activate the most recent chat
-        setActiveChatId(userHistory[0].id); 
-      } else {
-        // New user, start a new chat session
-        handleNewChat();
-      }
+        const now = new Date().toISOString();
+
+        if (!user) {
+            // New user registration
+            user = {
+                email: normalizedEmail,
+                profile: {
+                    name: normalizedEmail.split('@')[0],
+                    avatar: null
+                },
+                chatHistory: [],
+                activity: {
+                    createdAt: now,
+                    lastLogin: now,
+                }
+            };
+        } else {
+            // Existing user login
+            user.activity.lastLogin = now;
+        }
+
+        db[normalizedEmail] = user;
+        localStorage.setItem('td_ai_users_db', JSON.stringify(db));
+
+        // Set state from the loaded/created user object
+        setCurrentUserEmail(user.email);
+        setCurrentUserProfile(user.profile);
+        setChatHistory(user.chatHistory);
+
+        if (user.chatHistory.length > 0) {
+            // Activate the most recent chat
+            setActiveChatId(user.chatHistory[0].id);
+        } else {
+            // New user, start a new chat session
+            handleNewChat();
+        }
+
     } catch (e) {
-      console.error("Failed to load chat history:", e);
-      // Fallback to new chat on error
-      handleNewChat();
+        console.error("Failed to load or create user data:", e);
+        // Fallback for corrupted data
+        const profile = { name: normalizedEmail.split('@')[0], avatar: null };
+        setCurrentUserEmail(normalizedEmail);
+        setCurrentUserProfile(profile);
+        handleNewChat();
     }
   };
   
@@ -356,7 +398,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleDeleteChat = useCallback((chatId: string) => {
-    if (window.confirm(tr.deleteChatConfirm)) {
+    if (window.confirm(tr.chatHistory.deleteConfirm)) {
       setChatHistory(prev => prev.filter(chat => chat.id !== chatId));
       if (activeChatId === chatId) {
         setActiveChatId(null);
@@ -366,19 +408,10 @@ const App: React.FC = () => {
 
   const handleSaveProfile = (name: string, avatar: string | null) => {
     if (!currentUserEmail) return;
-
     const updatedProfile = { name, avatar };
     setCurrentUserProfile(updatedProfile);
-
-    try {
-      const allProfiles = JSON.parse(localStorage.getItem('userProfiles') || '{}');
-      allProfiles[currentUserEmail] = updatedProfile;
-      localStorage.setItem('userProfiles', JSON.stringify(allProfiles));
-    } catch (e) {
-      console.error("Failed to save profile:", e);
-    }
-    
     setIsProfileModalOpen(false);
+    // The useEffect will handle saving this to the main DB
   };
 
 
@@ -427,11 +460,11 @@ const App: React.FC = () => {
             
             console.log("Heard command:", command);
 
-            if (command.includes(tr.startCallCommand)) {
+            if (command.includes(tr.app.startCallCommand)) {
                 if (!isCallActive && !isConnecting) {
                     startVideoCall();
                 }
-            } else if (command.includes(tr.endCallCommand)) {
+            } else if (command.includes(tr.app.endCallCommand)) {
                 if (isCallActive) {
                     stopVideoCall();
                 }
@@ -476,12 +509,6 @@ const App: React.FC = () => {
   }, [isCallActive, isConnecting, isVoiceCommandEnabled]);
   
   const handleSendMessage = useCallback(async (prompt: string, file?: File | null) => {
-    const chat = chatRef.current;
-    if (!chat) {
-        setError(tr.chatNotInitError);
-        return;
-    }
-      
     // Common logic for adding user message and setting loading state
     setIsLoading(true);
     setError(null);
@@ -493,7 +520,7 @@ const App: React.FC = () => {
             fileData = { base64, mimeType: file.type };
         } catch (e) {
             console.error(e);
-            setError(tr.fileProcessError);
+            setError(tr.common.fileProcessError);
             setIsLoading(false);
             return;
         }
@@ -532,7 +559,7 @@ const App: React.FC = () => {
                 throw new Error('API_KEY_MISSING');
             }
             const ai = new GoogleGenAI({ apiKey });
-            const titlePrompt = `${tr.chatTitlePrompt}"${prompt}"`;
+            const titlePrompt = `${tr.chat.titlePrompt}"${prompt}"`;
             const result = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: titlePrompt,
@@ -545,7 +572,7 @@ const App: React.FC = () => {
         } catch (e: any) {
             console.error("Error generating chat title:", e);
             if (e.message === 'API_KEY_MISSING') {
-                setError(tr.apiKeyMissingError);
+                setError(tr.common.apiKeyMissingError);
             }
             // The placeholder title remains, which is fine.
         }
@@ -554,33 +581,88 @@ const App: React.FC = () => {
         setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: updatedMessages } : c));
     }
 
-
     const lowerCasePrompt = prompt.toLowerCase();
-    const imageGenKeywords = tr.imageGenKeywords;
-    const videoGenKeywords = tr.videoGenKeywords;
-    const isImagePrompt = !file && imageGenKeywords.some(word => lowerCasePrompt.includes(word));
-    const isVideoPrompt = !file && videoGenKeywords.some(word => lowerCasePrompt.includes(word));
-    
+    const urlRegex = /https?:\/\/[^\s]+/g;
+    const containsUrl = urlRegex.test(prompt);
+    const isSearchQuery = tr.webSearch.keywords.some(word => lowerCasePrompt.includes(word));
+    const isWebSearch = containsUrl || (isSearchQuery && !file);
 
-    if (isVideoPrompt) {
-        const placeholderText = tr.videoGenInProgress;
+    const imageGenKeywords = tr.imageGen.keywords;
+    const videoGenKeywords = tr.videoGen.keywords;
+    const isImagePrompt = !file && !isWebSearch && imageGenKeywords.some(word => lowerCasePrompt.includes(word));
+    const isVideoPrompt = !file && !isWebSearch && videoGenKeywords.some(word => lowerCasePrompt.includes(word));
+    
+    if (isWebSearch) {
+        const placeholderText = containsUrl ? tr.webSearch.analyzingURL : tr.webSearch.searchingInternet;
+        const placeholderMessage: Message = { role: 'model', text: placeholderText };
+        setMessages(prev => [...prev, placeholderMessage]);
+        setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, placeholderMessage] } : c));
+        
+        // Enhancement: If the prompt is just a URL, add a specific instruction for the model.
+        const urlMatch = prompt.trim().match(/^https?:\/\/[^\s]+$/);
+        const finalPrompt = urlMatch ? `${tr.webSearch.summarizeUrlPrompt} ${prompt.trim()}` : prompt;
+
+        try {
+            const apiKey = process.env.API_KEY;
+            if (!apiKey) {
+                throw new Error('API_KEY_MISSING');
+            }
+            const ai = new GoogleGenAI({ apiKey });
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: finalPrompt,
+                config: {
+                  tools: [{googleSearch: {}}],
+                },
+            });
+
+            const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+            const sources: Source[] = groundingChunks
+                .map((chunk: any) => ({
+                    uri: chunk.web?.uri || '',
+                    title: chunk.web?.title || '',
+                }))
+                .filter(source => source.uri);
+
+            const finalModelMessage: Message = { role: 'model', text: response.text, sources: sources };
+            
+            setMessages(prev => [...updatedMessages, finalModelMessage]);
+            setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, finalModelMessage] } : c));
+        } catch (e: any) {
+            console.error("Web search error:", e);
+            if (e.message === 'API_KEY_MISSING') {
+                setError(tr.common.apiKeyMissingError);
+            } else {
+                setError(tr.common.generalApiError);
+            }
+            const errorModelMessage = { role: 'model' as const, text: tr.common.generalApiError };
+            setMessages(prev => [...updatedMessages, errorModelMessage]);
+            setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, errorModelMessage] } : c));
+        } finally {
+            setIsLoading(false);
+        }
+
+    } else if (isVideoPrompt) {
+        const placeholderText = tr.videoGen.inProgress;
         setMessages(prev => [...prev, { role: 'model', text: placeholderText }]);
         setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, { role: 'model', text: placeholderText }] } : c));
         
         try {
-            const promptForGemini = `${tr.videoPromptGenerationPrompt}"${prompt}"`;
+            const chat = chatRef.current;
+            if (!chat) throw new Error("Chat not initialized");
+            const promptForGemini = `${tr.videoGen.promptGenerationPrompt}"${prompt}"`;
             const response = await chat.sendMessage({ message: promptForGemini });
             const engineeredPrompt = response.text;
 
-            const finalMessageText = `${tr.videoGenSuccess}\n\n\`\`\`\n${engineeredPrompt}\n\`\`\`\n\n[https://tryveo3.ai/](https://tryveo3.ai/)`;
+            const finalMessageText = `${tr.videoGen.success}\n\n\`\`\`\n${engineeredPrompt}\n\`\`\`\n\n[https://tryveo3.ai/](https://tryveo3.ai/)`;
             const finalModelMessage = { role: 'model' as const, text: finalMessageText };
 
             setMessages(prev => [...updatedMessages, finalModelMessage]);
             setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, finalModelMessage] } : c));
         } catch (e: any) {
             console.error(e);
-            setError(tr.generalApiError);
-            const errorModelMessage = { role: 'model' as const, text: `${tr.videoGenError}` };
+            setError(tr.common.generalApiError);
+            const errorModelMessage = { role: 'model' as const, text: `${tr.videoGen.error}` };
             setMessages(prev => [...updatedMessages, errorModelMessage]);
             setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, errorModelMessage] } : c));
         } finally {
@@ -588,7 +670,7 @@ const App: React.FC = () => {
         }
 
     } else if (isImagePrompt) {
-        const placeholderText = tr.imageGenInProgress;
+        const placeholderText = tr.imageGen.inProgress;
         setMessages(prev => [...prev, { role: 'model', text: placeholderText }]);
         setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, { role: 'model', text: placeholderText }] } : c));
         
@@ -600,9 +682,9 @@ const App: React.FC = () => {
             const ai = new GoogleGenAI({ apiKey });
             const getRandomItem = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
             
-            const style = getRandomItem(tr.imagePromptStyles);
-            const atmosphere = getRandomItem(tr.imagePromptAtmospheres);
-            const detail = getRandomItem(tr.imagePromptDetails);
+            const style = getRandomItem(tr.imageGen.styles);
+            const atmosphere = getRandomItem(tr.imageGen.atmospheres);
+            const detail = getRandomItem(tr.imageGen.details);
             
             const engineeredPrompt = `${style}: ${prompt}, ${atmosphere}, ${detail}`;
 
@@ -622,7 +704,7 @@ const App: React.FC = () => {
                     base64: firstPart.inlineData.data,
                     mimeType: firstPart.inlineData.mimeType,
                 };
-                const imageModelMessage: Message = { role: 'model', text: tr.imageGenGreeting, file: imageData };
+                const imageModelMessage: Message = { role: 'model', text: tr.imageGen.greeting, file: imageData };
                 setMessages(prev => [...updatedMessages, imageModelMessage]);
                 setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, imageModelMessage] } : c));
             } else {
@@ -631,9 +713,9 @@ const App: React.FC = () => {
         } catch (e: any) {
             console.error(e);
             if (e.message === 'API_KEY_MISSING') {
-                setError(tr.apiKeyMissingError);
+                setError(tr.common.apiKeyMissingError);
             }
-            const errorModelMessage = { role: 'model' as const, text: tr.imageGenError };
+            const errorModelMessage = { role: 'model' as const, text: tr.imageGen.error };
             setMessages(prev => [...updatedMessages, errorModelMessage]);
             setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, errorModelMessage] } : c));
         } finally {
@@ -642,9 +724,13 @@ const App: React.FC = () => {
 
     } else {
         // Regular text prompt or prompt with file
+        const chat = chatRef.current;
+        if (!chat) {
+            setError(tr.common.chatNotInitError);
+            setIsLoading(false);
+            return;
+        }
         try {
-            // Fix: Construct the message payload correctly for sendMessageStream.
-            // The method expects a 'message' parameter that is either a string or an array of Parts.
             let messageContent: string | (string | Part)[];
             if (fileData) {
               messageContent = [
@@ -681,8 +767,8 @@ const App: React.FC = () => {
 
         } catch (e: any) {
             console.error(e);
-            setError(tr.generalApiError);
-            const errorModelMessage = { role: 'model' as const, text: tr.generalApiError };
+            setError(tr.common.generalApiError);
+            const errorModelMessage = { role: 'model' as const, text: tr.common.generalApiError };
             setMessages(prev => [...updatedMessages, errorModelMessage]);
             setChatHistory(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: [...updatedMessages, errorModelMessage] } : c));
         } finally {
@@ -855,7 +941,7 @@ const App: React.FC = () => {
                 },
                 onerror: (e: ErrorEvent) => {
                     console.error('Live session error:', e);
-                    setError(`${tr.videoCallError}${e.message}`);
+                    setError(`${tr.videoCall.error}${e.message}`);
                     stopVideoCall();
                 },
                 onclose: () => {
@@ -876,11 +962,11 @@ const App: React.FC = () => {
 
     } catch (e: any) {
         if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-            setError(tr.mediaAccessError);
+            setError(tr.videoCall.mediaAccessError);
         } else if (e.message === 'API_KEY_MISSING') {
-            setError(tr.apiKeyMissingError);
+            setError(tr.common.apiKeyMissingError);
         } else {
-            setError(`${tr.mediaAccessErrorTechnical}${e.message}`);
+            setError(`${tr.videoCall.mediaAccessErrorTechnical}${e.message}`);
         }
         console.error(e);
         stopVideoCall();
@@ -936,7 +1022,9 @@ const App: React.FC = () => {
 
   return (
     <>
-      {!currentUserEmail && (
+      {showCookieConsent ? (
+        <CookieConsentBanner onAccept={handleAcceptCookies} onDecline={handleDeclineCookies} />
+      ) : !currentUserEmail ? (
         <AuthScreen
             authStep={authStep}
             verifyingEmail={verifyingEmail}
@@ -946,169 +1034,172 @@ const App: React.FC = () => {
             error={verificationError}
             simulatedCode={simulatedCode}
         />
-      )}
-      <div className="flex h-screen text-white font-sans">
-        <ChatHistorySidebar 
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-          chatHistory={chatHistory}
-          activeChatId={activeChatId}
-          onNewChat={handleNewChat}
-          onSelectChat={handleSelectChat}
-          onDeleteChat={handleDeleteChat}
-        />
-        
-        <ProfileModal 
-            isOpen={isProfileModalOpen}
-            onClose={() => setIsProfileModalOpen(false)}
-            onSave={handleSaveProfile}
-            currentName={currentUserProfile?.name || ''}
-            currentAvatar={currentUserProfile?.avatar || null}
-        />
-
-        <main className="flex-1 flex flex-col bg-gray-900 relative">
-          {/* Header */}
-          <header className="flex items-center justify-between p-4 border-b border-gray-800 absolute top-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm z-10">
-            <div className="flex items-center gap-2">
-                <button onClick={() => setIsSidebarOpen(true)} className="text-gray-400 hover:text-white lg:hidden">
-                  <MenuIcon className="w-6 h-6" />
-                </button>
-                <h1 className="text-xl font-bold tracking-wider text-red-500">Td AI</h1>
-            </div>
+      ) : (
+        <>
+          <div className="flex h-screen text-white font-sans">
+            <ChatHistorySidebar 
+              isOpen={isSidebarOpen}
+              onClose={() => setIsSidebarOpen(false)}
+              chatHistory={chatHistory}
+              activeChatId={activeChatId}
+              onNewChat={handleNewChat}
+              onSelectChat={handleSelectChat}
+              onDeleteChat={handleDeleteChat}
+            />
             
-            <div className="flex items-center gap-4">
-              <div className="hidden md:flex items-center gap-2 text-sm text-gray-400">
-                <span className={`w-2 h-2 rounded-full ${isVoiceCommandEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-600'}`}></span>
-                <span>{isVoiceCommandEnabled ? tr.listening : tr.voiceCommandsOff}</span>
-              </div>
-              <button onClick={toggleVoiceCommands} className="text-gray-400 hover:text-white" aria-label={isVoiceCommandEnabled ? tr.disableVoiceCommands : tr.enableVoiceCommands}>
-                  {isVoiceCommandEnabled ? <MicrophoneIcon className="w-5 h-5" /> : <MicrophoneOffIcon className="w-5 h-5" />}
-              </button>
-              <button
-                onClick={isCallActive ? stopVideoCall : startVideoCall}
-                disabled={isConnecting}
-                className="p-2 rounded-full bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50"
-                aria-label={isCallActive ? tr.endVideoCall : tr.startVideoCall}
-              >
-                {isConnecting ? (
-                  <div className="w-5 h-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
-                ) : isCallActive ? (
-                  <VideoOffIcon className="w-5 h-5 text-red-400" />
-                ) : (
-                  <VideoIcon className="w-5 h-5" />
-                )}
-              </button>
+            <ProfileModal 
+                isOpen={isProfileModalOpen}
+                onClose={() => setIsProfileModalOpen(false)}
+                onSave={handleSaveProfile}
+                currentName={currentUserProfile?.name || ''}
+                currentAvatar={currentUserProfile?.avatar || null}
+            />
 
-              {currentUserProfile && (
-                <div className="relative">
-                  <button onClick={() => setIsProfileMenuOpen(prev => !prev)} className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
-                        {currentUserProfile.avatar ? (
-                          <img src={`data:image/png;base64,${currentUserProfile.avatar}`} alt="User Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                          <UserIcon className="w-5 h-5 text-gray-400" />
-                        )}
-                      </div>
-                      <span className="hidden sm:inline text-sm font-medium">{currentUserProfile.name}</span>
+            <main className="flex-1 flex flex-col bg-gray-900 relative">
+              {/* Header */}
+              <header className="flex items-center justify-between p-4 border-b border-gray-800 absolute top-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm z-10">
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setIsSidebarOpen(true)} className="text-gray-400 hover:text-white lg:hidden">
+                      <MenuIcon className="w-6 h-6" />
+                    </button>
+                    <h1 className="text-xl font-bold tracking-wider text-red-500">Td AI</h1>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <div className="hidden md:flex items-center gap-2 text-sm text-gray-400">
+                    <span className={`w-2 h-2 rounded-full ${isVoiceCommandEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-600'}`}></span>
+                    <span>{isVoiceCommandEnabled ? tr.app.listening : tr.app.voiceCommandsOff}</span>
+                  </div>
+                  <button onClick={toggleVoiceCommands} className="text-gray-400 hover:text-white" aria-label={isVoiceCommandEnabled ? tr.app.disableVoiceCommands : tr.app.enableVoiceCommands}>
+                      {isVoiceCommandEnabled ? <MicrophoneIcon className="w-5 h-5" /> : <MicrophoneOffIcon className="w-5 h-5" />}
                   </button>
-                  {isProfileMenuOpen && (
-                    <div ref={profileMenuRef} className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg z-20 overflow-hidden animate-[fade-in_0.1s_ease-out]">
-                      <button onClick={() => { setIsProfileModalOpen(true); setIsProfileMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-red-600">
-                        {tr.editProfile}
+                  <button
+                    onClick={isCallActive ? stopVideoCall : startVideoCall}
+                    disabled={isConnecting}
+                    className="p-2 rounded-full bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50"
+                    aria-label={isCallActive ? tr.videoCall.end : tr.videoCall.start}
+                  >
+                    {isConnecting ? (
+                      <div className="w-5 h-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                    ) : isCallActive ? (
+                      <VideoOffIcon className="w-5 h-5 text-red-400" />
+                    ) : (
+                      <VideoIcon className="w-5 h-5" />
+                    )}
+                  </button>
+
+                  {currentUserProfile && (
+                    <div className="relative">
+                      <button onClick={() => setIsProfileMenuOpen(prev => !prev)} className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
+                            {currentUserProfile.avatar ? (
+                              <img src={`data:image/png;base64,${currentUserProfile.avatar}`} alt="User Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                              <UserIcon className="w-5 h-5 text-gray-400" />
+                            )}
+                          </div>
+                          <span className="hidden sm:inline text-sm font-medium">{currentUserProfile.name}</span>
                       </button>
-                      <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-red-600 flex items-center gap-2">
-                        <LogoutIcon className="w-4 h-4" />
-                        {tr.logout}
-                      </button>
+                      {isProfileMenuOpen && (
+                        <div ref={profileMenuRef} className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg z-20 overflow-hidden animate-[fade-in_0.1s_ease-out]">
+                          <button onClick={() => { setIsProfileModalOpen(true); setIsProfileMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-red-600">
+                            {tr.profile.edit}
+                          </button>
+                          <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-red-600 flex items-center gap-2">
+                            <LogoutIcon className="w-4 h-4" />
+                            {tr.auth.logout}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </header>
-          
-          <div className="flex-1 flex flex-col pt-20"> {/* pt-20 for header height */}
-            {isCallActive ? (
-              <div className="flex-1 flex flex-col md:flex-row relative">
-                 <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded-md text-sm">{tr.participantAI}</div>
-                 <AIAvatar isSpeaking={isAiSpeaking} />
-                 <div className="relative w-full md:w-1/4 aspect-video md:aspect-auto border-t-2 md:border-t-0 md:border-l-2 border-red-900">
-                   <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded-md text-sm">{currentUserProfile?.name || tr.participantYou}</div>
-                   <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover"></video>
-                 </div>
-                 <canvas ref={canvasRef} className="hidden"></canvas>
-                 {/* Call Controls */}
-                 <div className="absolute bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/50 backdrop-blur-sm p-3 rounded-full">
-                    <button onClick={toggleMute} className={`p-3 rounded-full ${isMuted ? 'bg-red-600' : 'bg-gray-700'} hover:bg-gray-600`}>
-                        {isMuted ? <MicrophoneOffIcon className="w-6 h-6"/> : <MicrophoneIcon className="w-6 h-6"/>}
-                    </button>
-                    <div className="relative group flex items-center gap-2">
-                        {aiVolume > 0 ? <VolumeUpIcon className="w-6 h-6 text-gray-300"/> : <VolumeOffIcon className="w-6 h-6 text-gray-500"/>}
-                        <input 
-                            type="range" 
-                            min="0" 
-                            max="1" 
-                            step="0.05" 
-                            value={aiVolume}
-                            onChange={handleVolumeChange}
-                            className="w-24 opacity-0 group-hover:opacity-100 transition-opacity absolute left-full ml-2"
-                            aria-label={tr.aiVolume}
-                        />
+              </header>
+              
+              <div className="flex-1 flex flex-col pt-20"> {/* pt-20 for header height */}
+                {isCallActive ? (
+                  <div className="flex-1 flex flex-col md:flex-row relative">
+                     <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded-md text-sm">{tr.videoCall.participantAI}</div>
+                     <AIAvatar isSpeaking={isAiSpeaking} />
+                     <div className="relative w-full md:w-1/4 aspect-video md:aspect-auto border-t-2 md:border-t-0 md:border-l-2 border-red-900">
+                       <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded-md text-sm">{currentUserProfile?.name || tr.videoCall.participantYou}</div>
+                       <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover"></video>
+                     </div>
+                     <canvas ref={canvasRef} className="hidden"></canvas>
+                     {/* Call Controls */}
+                     <div className="absolute bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/50 backdrop-blur-sm p-3 rounded-full">
+                        <button onClick={toggleMute} className={`p-3 rounded-full ${isMuted ? 'bg-red-600' : 'bg-gray-700'} hover:bg-gray-600`}>
+                            {isMuted ? <MicrophoneOffIcon className="w-6 h-6"/> : <MicrophoneIcon className="w-6 h-6"/>}
+                        </button>
+                        <div className="relative group flex items-center gap-2">
+                            {aiVolume > 0 ? <VolumeUpIcon className="w-6 h-6 text-gray-300"/> : <VolumeOffIcon className="w-6 h-6 text-gray-500"/>}
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="1" 
+                                step="0.05" 
+                                value={aiVolume}
+                                onChange={handleVolumeChange}
+                                className="w-24 opacity-0 group-hover:opacity-100 transition-opacity absolute left-full ml-2"
+                                aria-label={tr.videoCall.aiVolume}
+                            />
+                        </div>
+                        <button onClick={stopVideoCall} className="p-3 rounded-full bg-red-800 hover:bg-red-700">
+                            <VideoOffIcon className="w-6 h-6"/>
+                        </button>
+                     </div>
+                  </div>
+                ) : (
+                    <div className="flex-1 flex flex-col justify-end min-h-0">
+                        <ChatWindow messages={messages} isLoading={isLoading} userAvatar={currentUserProfile?.avatar || null} />
                     </div>
-                    <button onClick={stopVideoCall} className="p-3 rounded-full bg-red-800 hover:bg-red-700">
-                        <VideoOffIcon className="w-6 h-6"/>
-                    </button>
-                 </div>
-              </div>
-            ) : (
-                <div className="flex-1 flex flex-col justify-end min-h-0">
-                    <ChatWindow messages={messages} isLoading={isLoading} userAvatar={currentUserProfile?.avatar || null} />
+                )}
+                
+                <div className={`p-4 md:p-6 w-full max-w-4xl mx-auto ${isCallActive ? 'absolute bottom-0 left-0 right-0' : ''}`}>
+                  {error && <div className="bg-red-900/50 border border-red-500 text-red-300 px-4 py-2 rounded-lg mb-4 text-sm">{error}</div>}
+                  <ChatInput
+                    onSendMessage={handleSendMessage}
+                    isLoading={isLoading}
+                    isCallActive={isCallActive}
+                    placeholder={isCallActive ? tr.videoCall.activePlaceholder : tr.chat.placeholder}
+                    attachFileLabel={tr.chat.attachFile}
+                    removeFileLabel={tr.chat.removeFile}
+                  />
                 </div>
-            )}
-            
-            <div className={`p-4 md:p-6 w-full max-w-4xl mx-auto ${isCallActive ? 'absolute bottom-0 left-0 right-0' : ''}`}>
-              {error && <div className="bg-red-900/50 border border-red-500 text-red-300 px-4 py-2 rounded-lg mb-4 text-sm">{error}</div>}
-              <ChatInput
-                onSendMessage={handleSendMessage}
-                isLoading={isLoading}
-                isCallActive={isCallActive}
-                placeholder={isCallActive ? tr.callActivePlaceholder : tr.messagePlaceholder}
-                attachFileLabel={tr.attachFile}
-                removeFileLabel={tr.removeFile}
-              />
-            </div>
+              </div>
+            </main>
           </div>
-        </main>
-      </div>
-      <style>{`
-        /* Custom scrollbar for webkit browsers */
-        .overflow-y-auto::-webkit-scrollbar {
-          width: 8px;
-        }
-        .overflow-y-auto::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .overflow-y-auto::-webkit-scrollbar-thumb {
-          background-color: rgba(139, 0, 0, 0.5); /* Darker red */
-          border-radius: 20px;
-          border: 3px solid transparent;
-          background-clip: content-box;
-        }
-        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(185, 28, 28, 0.7); /* Red-700 */
-        }
-        /* Custom styles for volume slider */
-        input[type=range] { -webkit-appearance: none; background: transparent; }
-        input[type=range]::-webkit-slider-runnable-track { height: 4px; background: #4b5563; border-radius: 2px; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -6px; width: 16px; height: 16px; background: #fff; border-radius: 50%; border: 1px solid #ddd; cursor: pointer; }
-        input[type=range]::-moz-range-track { height: 4px; background: #4b5563; border-radius: 2px; }
-        input[type=range]::-moz-range-thumb { width: 16px; height: 16px; background: #fff; border-radius: 50%; border: 1px solid #ddd; cursor: pointer; }
-        
-        @keyframes fade-in {
-            from { opacity: 0; transform: scale(0.98); }
-            to { opacity: 1; transform: scale(1); }
-        }
-      `}</style>
+          <style>{`
+            /* Custom scrollbar for webkit browsers */
+            .overflow-y-auto::-webkit-scrollbar {
+              width: 8px;
+            }
+            .overflow-y-auto::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .overflow-y-auto::-webkit-scrollbar-thumb {
+              background-color: rgba(139, 0, 0, 0.5); /* Darker red */
+              border-radius: 20px;
+              border: 3px solid transparent;
+              background-clip: content-box;
+            }
+            .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+                background-color: rgba(185, 28, 28, 0.7); /* Red-700 */
+            }
+            /* Custom styles for volume slider */
+            input[type=range] { -webkit-appearance: none; background: transparent; }
+            input[type=range]::-webkit-slider-runnable-track { height: 4px; background: #4b5563; border-radius: 2px; }
+            input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -6px; width: 16px; height: 16px; background: #fff; border-radius: 50%; border: 1px solid #ddd; cursor: pointer; }
+            input[type=range]::-moz-range-track { height: 4px; background: #4b5563; border-radius: 2px; }
+            input[type=range]::-moz-range-thumb { width: 16px; height: 16px; background: #fff; border-radius: 50%; border: 1px solid #ddd; cursor: pointer; }
+            
+            @keyframes fade-in {
+                from { opacity: 0; transform: scale(0.98); }
+                to { opacity: 1; transform: scale(1); }
+            }
+          `}</style>
+        </>
+      )}
     </>
   );
 };

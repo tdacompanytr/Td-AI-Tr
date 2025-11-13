@@ -34,7 +34,7 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
         className={`absolute lg:static top-0 left-0 h-full bg-gray-950 border-r border-gray-800 w-64 md:w-72 flex flex-col flex-shrink-0 z-40 transition-transform transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
       >
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">{tr.chatHistory}</h2>
+            <h2 className="text-lg font-semibold text-white">{tr.chatHistory.title}</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-white lg:hidden">
               <XIcon className="w-6 h-6" />
             </button>
@@ -44,7 +44,7 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
                 onClick={onNewChat}
                 className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors"
             >
-                {tr.newChat}
+                {tr.chatHistory.newChat}
                 <PlusIcon className="w-5 h-5" />
             </button>
         </div>
@@ -69,7 +69,7 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
                     onDeleteChat(chat.id);
                   }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-red-900/50 opacity-0 group-hover:opacity-100 transition-opacity"
-                  aria-label={tr.deleteChat}
+                  aria-label={tr.chatHistory.delete}
                 >
                   <TrashIcon className="w-4 h-4" />
                 </button>
@@ -77,7 +77,7 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
             ))
           ) : (
             <div className="text-center text-gray-500 text-sm p-4">
-              {tr.noChatHistory}
+              {tr.chatHistory.empty}
             </div>
           )}
         </div>

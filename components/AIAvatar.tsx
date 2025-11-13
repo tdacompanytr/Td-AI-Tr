@@ -54,7 +54,7 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ isSpeaking }) => {
             width="4" 
             height="0.5" 
             rx="0.25" 
-            className={`fill-red-700 transition-transform duration-100 origin-bottom ${isSpeaking ? 'animate-[mouth-talk_0.5s_ease-in-out_infinite]' : 'scale-y-50'}`}
+            className={`fill-red-700 transition-transform duration-100 origin-bottom ${isSpeaking ? 'animate-[mouth-talk_0.25s_ease-out_infinite]' : 'scale-y-[0.2]'}`}
           />
 
           {/* --- NECK --- */}
@@ -131,10 +131,8 @@ const AIAvatar: React.FC<AIAvatarProps> = ({ isSpeaking }) => {
             }
         }
         @keyframes mouth-talk {
-          0%, 100% { transform: scaleY(1); }
-          25% { transform: scaleY(5); }
-          50% { transform: scaleY(2.5); }
-          75% { transform: scaleY(6); }
+          0%, 100% { transform: scaleY(0.2); }
+          50% { transform: scaleY(8); }
         }
       `}</style>
     </div>
