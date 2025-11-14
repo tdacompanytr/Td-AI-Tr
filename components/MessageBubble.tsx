@@ -1,9 +1,40 @@
-
 import React, { useState, useRef } from 'react';
 import type { Message, FileData } from '../types';
 import { UserIcon, BotIcon, TranslateIcon, XIcon, VolumeUpIcon, StopCircleIcon } from './Icons';
+import { GoogleGenAI, Modality } from "@google/genai";
 import { tr } from '../locales/tr';
 import SourcesPreview from './SourcesPreview';
+
+// --- TTS Helper Functions ---
+function decode(base64: string): Uint8Array {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+}
+  
+async function decodeAudioData(
+    data: Uint8Array,
+    ctx: AudioContext,
+    sampleRate: number,
+    numChannels: number,
+): Promise<AudioBuffer> {
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+  
+    for (let channel = 0; channel < numChannels; channel++) {
+      const channelData = buffer.getChannelData(channel);
+      for (let i = 0; i < frameCount; i++) {
+        channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+      }
+    }
+    return buffer;
+}
+
 
 interface MessageBubbleProps {
   message: Message;
@@ -41,6 +72,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isCallActive = f
 
   // TTS State
   const [ttsState, setTtsState] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle');
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const handleTranslate = async (langCode: string, langName: string) => {
     setShowLanguageSelector(false);
@@ -49,11 +82,25 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isCallActive = f
     setTranslationError(null);
     setTargetLanguageName(langName);
 
-    // Simulate translation
-    setTimeout(() => {
-        setTranslatedText(`[${langName} çevirisi]: ${message.text}`);
-        setIsTranslating(false);
-    }, 500);
+    try {
+      if (!process.env.API_KEY) {
+          throw new Error("API key not found.");
+      }
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const prompt = `Translate the following Turkish text to ${langName}. Only return the translated text, without any additional comments, prefixes, or explanations:\n\n"${message.text}"`;
+      
+      const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+      });
+
+      setTranslatedText(response.text);
+    } catch (e) {
+      console.error("Translation error:", e);
+      setTranslationError(tr.translation.error);
+    } finally {
+      setIsTranslating(false);
+    }
   };
 
   const resetTranslation = () => {
@@ -65,41 +112,60 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isCallActive = f
   }
 
   const handleStopAudio = () => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        // The onend event will fire, which resets the state.
-        // If it's cancelled abruptly, we might need to force it.
-        setTtsState('idle');
+    if (audioSourceRef.current) {
+        audioSourceRef.current.onended = null; // Prevent onended from firing on manual stop
+        audioSourceRef.current.stop();
+        audioSourceRef.current = null;
     }
+    setTtsState('idle');
   };
 
   const handlePlayAudio = async () => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-        setTtsState('error');
-        console.error("Browser does not support Speech Synthesis.");
-        return;
-    }
-
     setTtsState('loading');
-    
-    // In case there's anything lingering
-    window.speechSynthesis.cancel();
+    try {
+        if (!process.env.API_KEY) throw new Error("API key not found.");
+        
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text: message.text }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Kore' },
+                    },
+                },
+            },
+        });
 
-    const utterance = new SpeechSynthesisUtterance(message.text);
-    utterance.lang = 'tr-TR';
-    
-    utterance.onstart = () => {
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) throw new Error("No audio data received.");
+
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+        }
+        const audioContext = audioContextRef.current;
+        await audioContext.resume(); // Ensure context is running
+
+        const audioBuffer = await decodeAudioData(decode(base64Audio), audioContext, 24000, 1);
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+
+        audioSourceRef.current = source;
+        source.onended = () => {
+            setTtsState('idle');
+            audioSourceRef.current = null;
+        };
+        source.start();
         setTtsState('playing');
-    };
-    utterance.onend = () => {
-        setTtsState('idle');
-    };
-    utterance.onerror = (e) => {
+
+    } catch (e) {
         console.error("TTS Error:", e);
         setTtsState('error');
-    };
-
-    window.speechSynthesis.speak(utterance);
+        setTimeout(() => setTtsState('idle'), 3000); // Reset after a while
+    }
   };
 
   const togglePlayback = () => {
